@@ -4,7 +4,7 @@
  */
 
 const { Pool } = require('pg');
-require('dotenv').config();
+require('dotenv').config({ path: '../../.env' });
 
 // Create PostgreSQL connection pool
 const pool = new Pool({
@@ -29,6 +29,8 @@ async function testConnection() {
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
     console.error('💡 Check your DATABASE_URL in .env file');
+    console.log('DATABASE_URL:', process.env.DATABASE_URL);
+
     return false;
   }
 }
