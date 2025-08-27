@@ -36,8 +36,11 @@ class DukascopyImporter {
         batchSize: TRADFI_CONFIG.batchSize,
         pauseBetweenBatchesMs: TRADFI_CONFIG.pauseBetweenBatchesMs,
         
-        // Use ISO date format for cleaner timestamps
-        dateFormat: 'iso',
+        // Request configuration for better reliability
+        format: 'json',
+        retryCount: 5,
+        retryOnEmpty: true,
+        failAfterRetryCount: false,
         
         // Progress callback for detailed logging
         onProgress: async (progress) => {
@@ -154,30 +157,43 @@ async function main() {
     if (result.data.length > 0) {
       console.log('- Sample data (first 3 records):');
       
-      // Safe timestamp handling for display
+      // Safe data handling for display
       const sampleData = result.data.slice(0, 3).map(record => {
-        let displayTimestamp;
-        try {
-          if (typeof record.timestamp === 'string' && record.timestamp.includes('T')) {
-            // Already ISO format
-            displayTimestamp = record.timestamp;
-          } else if (typeof record.timestamp === 'number') {
-            displayTimestamp = new Date(record.timestamp).toISOString();
-          } else {
-            displayTimestamp = String(record.timestamp);
+        if (Array.isArray(record)) {
+          // Array format: [timestamp, open, high, low, close, volume]
+          const [timestamp, open, high, low, close, volume] = record;
+          return {
+            timestamp: new Date(timestamp).toISOString(),
+            open: open,
+            high: high,
+            low: low,
+            close: close,
+            volume: volume || 0
+          };
+        } else if (typeof record === 'object' && record !== null) {
+          // Object format
+          let displayTimestamp;
+          try {
+            if (typeof record.timestamp === 'number') {
+              displayTimestamp = new Date(record.timestamp).toISOString();
+            } else {
+              displayTimestamp = String(record.timestamp);
+            }
+          } catch (error) {
+            displayTimestamp = 'Invalid timestamp';
           }
-        } catch (error) {
-          displayTimestamp = 'Invalid timestamp';
+          
+          return {
+            timestamp: displayTimestamp,
+            open: record.open,
+            high: record.high,
+            low: record.low,
+            close: record.close,
+            volume: record.volume || 0
+          };
+        } else {
+          return { error: 'Unknown record format', raw: record };
         }
-        
-        return {
-          timestamp: displayTimestamp,
-          open: record.open,
-          high: record.high,
-          low: record.low,
-          close: record.close,
-          volume: record.volume || 0
-        };
       });
       
       console.log(sampleData);

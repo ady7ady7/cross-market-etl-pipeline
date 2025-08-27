@@ -47,49 +47,63 @@ class CSVWriter {
 
     // Transform data to match CSV format with proper timestamp handling
     const csvData = data.map(record => {
-      let timestamp;
+      let timestamp, open, high, low, close, volume;
       
-      // Handle different timestamp formats from dukascopy-node
+      // Handle both object format and array format from dukascopy-node
+      if (Array.isArray(record)) {
+        // Array format: [timestamp, open, high, low, close, volume]
+        [timestamp, open, high, low, close, volume] = record;
+      } else if (typeof record === 'object' && record !== null) {
+        // Object format: {timestamp, open, high, low, close, volume}
+        timestamp = record.timestamp;
+        open = record.open;
+        high = record.high;
+        low = record.low;
+        close = record.close;
+        volume = record.volume;
+      } else {
+        // Invalid record format
+        console.warn('Warning: Invalid record format, skipping:', record);
+        return null;
+      }
+      
+      // Handle timestamp conversion
+      let formattedTimestamp;
       try {
-        if (typeof record.timestamp === 'number') {
+        if (typeof timestamp === 'number') {
           // Unix timestamp in milliseconds
-          timestamp = new Date(record.timestamp).toISOString().split('T')[0] + ' ' + 
-                     new Date(record.timestamp).toISOString().split('T')[1].split('.')[0];
-        } else if (record.timestamp instanceof Date) {
-          // Date object
-          timestamp = record.timestamp.toISOString().split('T')[0] + ' ' + 
-                     record.timestamp.toISOString().split('T')[1].split('.')[0];
-        } else if (typeof record.timestamp === 'string') {
+          const date = new Date(timestamp);
+          formattedTimestamp = date.toISOString().split('T')[0] + ' ' + 
+                              date.toISOString().split('T')[1].split('.')[0];
+        } else if (typeof timestamp === 'string') {
           // String timestamp - try to parse and reformat
-          const date = new Date(record.timestamp);
+          const date = new Date(timestamp);
           if (!isNaN(date.getTime())) {
-            timestamp = date.toISOString().split('T')[0] + ' ' + 
-                       date.toISOString().split('T')[1].split('.')[0];
+            formattedTimestamp = date.toISOString().split('T')[0] + ' ' + 
+                               date.toISOString().split('T')[1].split('.')[0];
           } else {
-            // If parsing fails, use the string as-is
-            timestamp = record.timestamp;
+            formattedTimestamp = timestamp; // Use as-is if can't parse
           }
         } else {
-          // Fallback - use current time
-          timestamp = new Date().toISOString().split('T')[0] + ' ' + 
-                     new Date().toISOString().split('T')[1].split('.')[0];
+          // Fallback
+          formattedTimestamp = new Date().toISOString().split('T')[0] + ' ' + 
+                              new Date().toISOString().split('T')[1].split('.')[0];
         }
       } catch (error) {
-        // If any timestamp conversion fails, use a fallback
-        console.warn(`Warning: Invalid timestamp for record, using current time: ${error.message}`);
-        timestamp = new Date().toISOString().split('T')[0] + ' ' + 
-                   new Date().toISOString().split('T')[1].split('.')[0];
+        console.warn(`Warning: Invalid timestamp for record: ${error.message}`);
+        formattedTimestamp = new Date().toISOString().split('T')[0] + ' ' + 
+                            new Date().toISOString().split('T')[1].split('.')[0];
       }
 
       return {
-        timestamp: timestamp,
-        open: record.open,
-        high: record.high,
-        low: record.low,
-        close: record.close,
-        volume: record.volume || 0
+        timestamp: formattedTimestamp,
+        open: open || 0,
+        high: high || 0,
+        low: low || 0,
+        close: close || 0,
+        volume: volume || 0
       };
-    });
+    }).filter(record => record !== null); // Remove any null records
 
     await csvWriter.writeRecords(csvData);
     return filePath;

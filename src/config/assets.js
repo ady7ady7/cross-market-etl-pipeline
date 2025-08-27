@@ -36,10 +36,10 @@ const CRYPTO_CONFIG = {
 };
 
 const DATA_CONFIG = {
-  // Default date range - YYYY-MM-DD format (avoid today's incomplete data)
+  // Default date range - YYYY-MM-DD format (use recent weekdays with market data)
   defaultDateRange: {
-    from: new Date("2025-08-25"),     // Simple YYYY-MM-DD format
-    to: new Date("2025-08-26")        // End before today for complete data
+    from: new Date("2025-08-20"),     // Wednesday
+    to: new Date("2025-08-22")        // Friday (ensure weekdays with market data)
   },
   
   // Data storage paths
