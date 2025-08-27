@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 
 # Crypto Assets List - for ccxt implementation
 CRYPTO_ASSETS = [
+    {'symbol': 'BTC/USDT', 'name': 'Bitcoin', 'exchange': 'binance'},
     # Uncomment and add crypto assets as needed
-    # {'symbol': 'BTC/USDT', 'name': 'Bitcoin', 'exchange': 'binance'},
     # {'symbol': 'ETH/USDT', 'name': 'Ethereum', 'exchange': 'binance'},
     # {'symbol': 'ADA/USDT', 'name': 'Cardano', 'exchange': 'binance'},
     # {'symbol': 'SOL/USDT', 'name': 'Solana', 'exchange': 'binance'},
@@ -30,8 +30,8 @@ CRYPTO_CONFIG = {
 DATA_CONFIG = {
     # Default date range - matches Node.js config
     'default_date_range': {
-        'from': '2025-08-25',             # YYYY-MM-DD format
-        'to': '2025-08-27'                # YYYY-MM-DD format
+        'from': '2025-08-20',             # YYYY-MM-DD format
+        'to': '2025-08-22'                # YYYY-MM-DD format
     },
     
     # Data storage paths (relative to project root)
