@@ -116,9 +116,12 @@ class DukascopyImporter {
     return this.fetchHistoricalData(asset, dateRange, timeframe);
   }
 
-  // Convenience method for testing with DAX
-  async fetchDAXData(dateRange = null) {
-    return this.fetchAssetBySymbol('deuidxeur', dateRange);
+  // Convenience method for testing with any configured asset
+  async fetchFirstAsset(dateRange = null) {
+    if (TRADFI_ASSETS.length === 0) {
+      throw new Error('No assets configured in TRADFI_ASSETS');
+    }
+    return this.fetchHistoricalData(TRADFI_ASSETS[0], dateRange);
   }
 }
 
@@ -127,9 +130,16 @@ async function main() {
   const importer = new DukascopyImporter();
   
   try {
-    // Use the configured date range from assets.js
-    console.log('🎯 Fetching DAX data with configured date range...\n');
-    const result = await importer.fetchDAXData();
+    // Use the configured date range from assets.js and fetch the first configured asset
+    if (TRADFI_ASSETS.length === 0) {
+      console.error('❌ No assets configured in TRADFI_ASSETS');
+      process.exit(1);
+    }
+
+    const firstAsset = TRADFI_ASSETS[0];
+    console.log(`🎯 Fetching ${firstAsset.name} data with configured date range...\n`);
+    
+    const result = await importer.fetchFirstAsset();
     
     console.log('\n📋 Summary:');
     console.log(`- Asset: ${result.asset.name} (${result.asset.symbol})`);
@@ -137,44 +147,18 @@ async function main() {
     console.log(`- Date range: ${result.dateRange.from.toISOString().split('T')[0]} to ${result.dateRange.to.toISOString().split('T')[0]}`);
     console.log(`- Records fetched: ${result.recordCount}`);
     console.log(`- CSV file: ${result.filePath}`);
-    console.log('- Sample data (first 3 records):');
-    console.log(result.data.slice(0, 3).map(record => ({
-      timestamp: new Date(record.timestamp).toISOString(),
-      open: record.open,
-      high: record.high,
-      low: record.low,
-      close: record.close,
-      volume: record.volume || 0
-    })));
-
-  } catch (error) {
-    console.error('❌ Script execution failed:', error);
-    process.exit(1);
-  }
-}
-
-// Export the class for use in other modules
-module.exports = DukascopyImporter;
-
-// Run main function if this script is executed directly
-if (require.main === module) {
-  main();
-} with DAX data for the last 2 days
-    console.log('🎯 Testing with DAX data (last 2 days)...\n');
-    const result = await importer.fetchDAXData(2);
     
-    console.log('\n📋 Summary:');
-    console.log(`- Records fetched: ${result.recordCount}`);
-    console.log(`- File saved: ${result.filePath}`);
-    console.log('- First few records:');
-    console.log(result.data.slice(0, 3).map(record => ({
-      timestamp: new Date(record.timestamp).toISOString(),
-      open: record.open,
-      high: record.high,
-      low: record.low,
-      close: record.close,
-      volume: record.volume || 0
-    })));
+    if (result.data.length > 0) {
+      console.log('- Sample data (first 3 records):');
+      console.log(result.data.slice(0, 3).map(record => ({
+        timestamp: new Date(record.timestamp).toISOString(),
+        open: record.open,
+        high: record.high,
+        low: record.low,
+        close: record.close,
+        volume: record.volume || 0
+      })));
+    }
 
   } catch (error) {
     console.error('❌ Script execution failed:', error);
