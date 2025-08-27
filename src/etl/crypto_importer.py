@@ -9,7 +9,8 @@ import time
 from datetime import datetime, timedelta
 
 # Add project root to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
 
 import ccxt
 from src.config.crypto_assets import (
@@ -101,16 +102,15 @@ class CryptoImporter:
             all_candles = []
             current_time = since
             batch_count = 0
-            total_batches = max(1, int((until - since) / (CRYPTO_CONFIG['batch_size'] * timeframe_duration)))
             
-            self.logger.info(f"Estimated batches: {total_batches}")
+            self.logger.info(f"Starting data collection from {exchange.iso8601(since)}")
             
             while current_time < until:
                 try:
                     batch_count += 1
                     
                     # Fetch OHLCV data
-                    self.logger.batch(batch_count, total_batches, CRYPTO_CONFIG['batch_size'])
+                    self.logger.batch(batch_count, 0, CRYPTO_CONFIG['batch_size'])  # 0 = unknown total
                     
                     candles = exchange.fetch_ohlcv(
                         symbol=asset['symbol'],
@@ -127,16 +127,21 @@ class CryptoImporter:
                     valid_candles = [c for c in candles if since <= c[0] <= until]
                     all_candles.extend(valid_candles)
                     
+                    self.logger.info(f"Fetched {len(candles)} candles, {len(valid_candles)} within range")
+                    
                     # Update current time for next batch
                     if candles:
                         current_time = candles[-1][0] + timeframe_duration
                     else:
                         break
                     
+                    # Exit if we've reached the end date
+                    if current_time >= until:
+                        break
+                    
                     # Rate limiting
-                    if batch_count < total_batches:
-                        self.logger.pause(CRYPTO_CONFIG['rate_limit_delay'])
-                        time.sleep(CRYPTO_CONFIG['rate_limit_delay'])
+                    self.logger.pause(CRYPTO_CONFIG['rate_limit_delay'])
+                    time.sleep(CRYPTO_CONFIG['rate_limit_delay'])
                         
                 except ccxt.BaseError as e:
                     self.logger.error(f"CCXT error in batch {batch_count}: {str(e)}")
