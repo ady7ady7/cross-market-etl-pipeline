@@ -36,6 +36,9 @@ class DukascopyImporter {
         batchSize: TRADFI_CONFIG.batchSize,
         pauseBetweenBatchesMs: TRADFI_CONFIG.pauseBetweenBatchesMs,
         
+        // Use ISO date format for cleaner timestamps
+        dateFormat: 'iso',
+        
         // Progress callback for detailed logging
         onProgress: async (progress) => {
           if (progress.totalBatches > 1) {

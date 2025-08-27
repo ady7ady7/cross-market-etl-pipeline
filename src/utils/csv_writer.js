@@ -45,15 +45,51 @@ class CSVWriter {
       ]
     });
 
-    // Transform data to match CSV format
-    const csvData = data.map(record => ({
-      timestamp: new Date(record.timestamp).toISOString(),
-      open: record.open,
-      high: record.high,
-      low: record.low,
-      close: record.close,
-      volume: record.volume || 0
-    }));
+    // Transform data to match CSV format with proper timestamp handling
+    const csvData = data.map(record => {
+      let timestamp;
+      
+      // Handle different timestamp formats from dukascopy-node
+      try {
+        if (typeof record.timestamp === 'number') {
+          // Unix timestamp in milliseconds
+          timestamp = new Date(record.timestamp).toISOString().split('T')[0] + ' ' + 
+                     new Date(record.timestamp).toISOString().split('T')[1].split('.')[0];
+        } else if (record.timestamp instanceof Date) {
+          // Date object
+          timestamp = record.timestamp.toISOString().split('T')[0] + ' ' + 
+                     record.timestamp.toISOString().split('T')[1].split('.')[0];
+        } else if (typeof record.timestamp === 'string') {
+          // String timestamp - try to parse and reformat
+          const date = new Date(record.timestamp);
+          if (!isNaN(date.getTime())) {
+            timestamp = date.toISOString().split('T')[0] + ' ' + 
+                       date.toISOString().split('T')[1].split('.')[0];
+          } else {
+            // If parsing fails, use the string as-is
+            timestamp = record.timestamp;
+          }
+        } else {
+          // Fallback - use current time
+          timestamp = new Date().toISOString().split('T')[0] + ' ' + 
+                     new Date().toISOString().split('T')[1].split('.')[0];
+        }
+      } catch (error) {
+        // If any timestamp conversion fails, use a fallback
+        console.warn(`Warning: Invalid timestamp for record, using current time: ${error.message}`);
+        timestamp = new Date().toISOString().split('T')[0] + ' ' + 
+                   new Date().toISOString().split('T')[1].split('.')[0];
+      }
+
+      return {
+        timestamp: timestamp,
+        open: record.open,
+        high: record.high,
+        low: record.low,
+        close: record.close,
+        volume: record.volume || 0
+      };
+    });
 
     await csvWriter.writeRecords(csvData);
     return filePath;
