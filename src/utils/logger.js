@@ -53,7 +53,7 @@ class Logger {
 
   async log(level, message, error = null) {
     const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] [${level.upper()}] ${message}`;
+    const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
     
     // Console logging with emojis
     const emoji = {
