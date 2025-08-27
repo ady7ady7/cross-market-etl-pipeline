@@ -27,7 +27,7 @@ class CSVWriter {
 
   async writeTradFiData(data, instrument, timeframe, dateRange) {
     const filename = this.generateFilename(instrument, timeframe, dateRange);
-    const filePath = path.join(this.baseDataPath, 'tradfi', filename);
+    const filePath = path.join(this.baseDataPath, filename);
     
     // Ensure directory exists
     await this.ensureDirectoryExists(path.dirname(filePath));
@@ -97,7 +97,7 @@ class CSVWriter {
 
   async writeCryptoData(data, symbol, timeframe, dateRange) {
     const filename = this.generateFilename(symbol, timeframe, dateRange);
-    const filePath = path.join(this.baseDataPath, 'crypto', filename);
+    const filePath = path.join(this.baseDataPath, filename);
     
     // Ensure directory exists
     await this.ensureDirectoryExists(path.dirname(filePath));

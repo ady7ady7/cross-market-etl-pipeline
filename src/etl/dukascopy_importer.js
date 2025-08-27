@@ -153,14 +153,34 @@ async function main() {
     
     if (result.data.length > 0) {
       console.log('- Sample data (first 3 records):');
-      console.log(result.data.slice(0, 3).map(record => ({
-        timestamp: new Date(record.timestamp).toISOString(),
-        open: record.open,
-        high: record.high,
-        low: record.low,
-        close: record.close,
-        volume: record.volume || 0
-      })));
+      
+      // Safe timestamp handling for display
+      const sampleData = result.data.slice(0, 3).map(record => {
+        let displayTimestamp;
+        try {
+          if (typeof record.timestamp === 'string' && record.timestamp.includes('T')) {
+            // Already ISO format
+            displayTimestamp = record.timestamp;
+          } else if (typeof record.timestamp === 'number') {
+            displayTimestamp = new Date(record.timestamp).toISOString();
+          } else {
+            displayTimestamp = String(record.timestamp);
+          }
+        } catch (error) {
+          displayTimestamp = 'Invalid timestamp';
+        }
+        
+        return {
+          timestamp: displayTimestamp,
+          open: record.open,
+          high: record.high,
+          low: record.low,
+          close: record.close,
+          volume: record.volume || 0
+        };
+      });
+      
+      console.log(sampleData);
     }
 
   } catch (error) {
