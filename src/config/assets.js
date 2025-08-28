@@ -23,8 +23,8 @@ const CRYPTO_ASSETS = [
 // Global TradFi Configuration
 const TRADFI_CONFIG = {
   timeframe: 'm1',                    // Single timeframe for all TradFi assets
-  batchSize: 10,                      // Batch size for all TradFi downloads
-  pauseBetweenBatchesMs: 2000,        // Pause between batches for all TradFi assets
+  batchSize: 5,                      // Batch size for all TradFi downloads
+  pauseBetweenBatchesMs: 5000,        // Pause between batches for all TradFi assets
   availableTimeframes: ['m1', 'm5', 'h1', 'd1']
 };
 
@@ -38,8 +38,8 @@ const CRYPTO_CONFIG = {
 const DATA_CONFIG = {
   // Default date range - YYYY-MM-DD format (use recent weekdays with market data)
   defaultDateRange: {
-    from: new Date("2025-08-20"),     // Wednesday
-    to: new Date("2025-08-22")        // Friday (ensure weekdays with market data)
+    from: new Date("2024-01-10"),     // Wednesday
+    to: new Date("2025-08-26")        // Friday (ensure weekdays with market data)
   },
   
   // Data storage paths

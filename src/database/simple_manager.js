@@ -4,7 +4,8 @@
  * Handles deduplication and metadata generation
  */
 
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsPromises = require('fs').promises;
 const path = require('path');
 const csv = require('csv-parser');
 const { pool } = require('../config/database');
@@ -21,7 +22,7 @@ class SimpleDatabaseManager {
    */
   async initializeSchema() {
     try {
-      const schemaSQL = await fs.readFile(
+      const schemaSQL = await fsPromises.readFile(
         path.join(__dirname, 'schema', 'simple_ohlcv.sql'),
         'utf8'
       );
@@ -79,7 +80,7 @@ class SimpleDatabaseManager {
     let filesProcessed = 0;
 
     try {
-      const files = await fs.readdir(tradfiPath);
+      const files = await fsPromises.readdir(tradfiPath);
       const csvFiles = files.filter(f => f.endsWith('.csv'));
       
       console.log(`📊 Found ${csvFiles.length} TradFi CSV files`);
@@ -205,7 +206,7 @@ class SimpleDatabaseManager {
     let filesProcessed = 0;
 
     try {
-      const files = await fs.readdir(cryptoPath);
+      const files = await fsPromises.readdir(cryptoPath);
       const csvFiles = files.filter(f => f.endsWith('.csv'));
       
       console.log(`🪙 Found ${csvFiles.length} Crypto CSV files`);

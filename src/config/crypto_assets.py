@@ -21,7 +21,7 @@ CRYPTO_CONFIG = {
     'default_exchange': 'binance',        # Default exchange
     'available_timeframes': ['1m', '5m', '1h', '1d'],
     'batch_size': 1000,                   # Records per request (ccxt typically handles larger batches)
-    'rate_limit_delay': 1.0,              # Seconds between requests
+    'rate_limit_delay': 3.0,              # Seconds between requests
     'max_retries': 3,                     # Maximum retry attempts for failed requests
     'timeout': 30000                      # Request timeout in milliseconds
 }
@@ -30,8 +30,8 @@ CRYPTO_CONFIG = {
 DATA_CONFIG = {
     # Default date range - matches Node.js config
     'default_date_range': {
-        'from': '2025-08-20',             # YYYY-MM-DD format
-        'to': '2025-08-22'                # YYYY-MM-DD format
+        'from': '2025-01-10',             # YYYY-MM-DD format
+        'to': '2025-08-26'                # YYYY-MM-DD format
     },
     
     # Data storage paths (relative to project root)
