@@ -1,7 +1,7 @@
 /**
  * Simple Database Manager
  * Uses existing CSV data from your current importers
- * Handles deduplication and metadata generation
+ * Handles deduplication and metadata generation with streaming
  */
 
 const fs = require('fs');
@@ -75,24 +75,50 @@ class SimpleDatabaseManager {
    * Import TradFi CSV files
    */
   async importTradFiCSVs() {
-    const tradfiPath = './data/tradfi';
+    return this.importCSVFiles('./data/tradfi', 'tradfi');
+  }
+
+  /**
+   * Import Crypto CSV files
+   */
+  async importCryptoCSVs() {
+    return this.importCSVFiles('./data/crypto', 'crypto');
+  }
+
+  /**
+   * Generic method to import CSV files from a directory
+   */
+  async importCSVFiles(dirPath, type) {
     let totalInserted = 0;
     let totalUpdated = 0;
     let filesProcessed = 0;
 
     try {
-      const files = await fsPromises.readdir(tradfiPath);
+      const files = await fsPromises.readdir(dirPath);
       const csvFiles = files.filter(f => f.endsWith('.csv'));
       
-      console.log(`📊 Found ${csvFiles.length} TradFi CSV files`);
+      const typeEmoji = type === 'tradfi' ? '📊' : '🪙';
+      const typeName = type === 'tradfi' ? 'TradFi' : 'Crypto';
+      
+      console.log(`${typeEmoji} Found ${csvFiles.length} ${typeName} CSV files`);
       
       for (const filename of csvFiles) {
-        const filePath = path.join(tradfiPath, filename);
-        const symbol = this.extractSymbolFromFilename(filename, 'tradfi');
+        const filePath = path.join(dirPath, filename);
         
-        console.log(`📄 Processing: ${filename} (${symbol})`);
+        let symbol, exchange;
+        if (type === 'tradfi') {
+          symbol = this.extractSymbolFromFilename(filename, 'tradfi');
+          exchange = null;
+        } else {
+          const cryptoInfo = this.extractCryptoInfo(filename);
+          symbol = cryptoInfo.symbol;
+          exchange = cryptoInfo.exchange;
+        }
         
-        const { inserted, updated } = await this.importTradFiCSV(filePath, symbol);
+        const displayName = exchange ? `${symbol} on ${exchange}` : symbol;
+        console.log(`📄 Processing: ${filename} (${displayName})`);
+        
+        const { inserted, updated } = await this.importCSVFile(filePath, symbol, exchange, type);
         totalInserted += inserted;
         totalUpdated += updated;
         filesProcessed++;
@@ -104,7 +130,7 @@ class SimpleDatabaseManager {
       
     } catch (error) {
       if (error.code === 'ENOENT') {
-        console.log('📁 No TradFi data directory found');
+        console.log(`📁 No ${type} data directory found`);
         return { inserted: 0, updated: 0, files: 0 };
       }
       throw error;
@@ -112,18 +138,35 @@ class SimpleDatabaseManager {
   }
 
   /**
-   * Import single TradFi CSV file with streaming and progress
+   * Generic CSV import with streaming and batch processing
    */
-  async importTradFiCSV(filePath, symbol) {
+  async importCSVFile(filePath, symbol, exchange, type) {
     return new Promise((resolve, reject) => {
-      const records = [];
+      let records = [];
       let rowCount = 0;
+      let totalInserted = 0;
+      let totalUpdated = 0;
+      let streamBatchNumber = 0;
       
       console.log(`   📊 Starting to read CSV file...`);
       
+      const processStreamBatch = async () => {
+        if (records.length === 0) return { inserted: 0, updated: 0 };
+        
+        streamBatchNumber++;
+        console.log(`   💾 Processing stream batch ${streamBatchNumber} (${records.length} records)...`);
+        
+        const result = await this.insertRecordsBatched(records, type);
+        totalInserted += result.inserted;
+        totalUpdated += result.updated;
+        
+        records = []; // Clear the batch
+        return result;
+      };
+      
       fs.createReadStream(filePath)
         .pipe(csv())
-        .on('data', (row) => {
+        .on('data', async (row) => {
           // Data validation if enabled
           if (config.VALIDATE_NUMBERS && !this.isValidRecord(row)) {
             if (config.SKIP_MALFORMED_RECORDS) {
@@ -131,7 +174,7 @@ class SimpleDatabaseManager {
             }
           }
 
-          records.push({
+          const record = {
             symbol: symbol,
             timestamp: new Date(row.timestamp),
             open: parseFloat(row.open),
@@ -139,27 +182,41 @@ class SimpleDatabaseManager {
             low: parseFloat(row.low),
             close: parseFloat(row.close),
             volume: row.volume ? parseFloat(row.volume) : null
-          });
+          };
           
+          if (exchange) {
+            record.exchange = exchange;
+          }
+          
+          records.push(record);
           rowCount++;
           
-          // Show progress based on config
+          // Show progress
           if (rowCount % config.PROGRESS_INTERVAL === 0) {
             console.log(`   📈 Parsed ${rowCount.toLocaleString()} rows...`);
           }
 
-          // Memory management
-          if (rowCount >= config.MAX_RECORDS_IN_MEMORY) {
-            console.log(`   ⚠️  Reached memory limit (${config.MAX_RECORDS_IN_MEMORY}), processing batch...`);
+          // Process stream batch when it gets large enough (memory management)
+          if (config.ENABLE_STREAMING && records.length >= config.STREAM_BATCH_SIZE) {
+            try {
+              await processStreamBatch();
+            } catch (error) {
+              console.error('   ❌ Failed to process stream batch:', error.message);
+            }
           }
         })
         .on('end', async () => {
           try {
             console.log(`   ✅ Finished parsing ${rowCount.toLocaleString()} rows`);
-            console.log(`   💾 Starting database insertion...`);
             
-            const result = await this.insertTradFiRecordsBatched(records, symbol);
-            resolve(result);
+            // Process any remaining records
+            if (records.length > 0) {
+              console.log(`   💾 Processing final batch (${records.length} records)...`);
+              await processStreamBatch();
+            }
+            
+            console.log(`   🎉 Complete: ${totalInserted} inserted, ${totalUpdated} updated`);
+            resolve({ inserted: totalInserted, updated: totalUpdated });
           } catch (error) {
             reject(error);
           }
@@ -169,16 +226,14 @@ class SimpleDatabaseManager {
   }
 
   /**
-   * Insert TradFi records in batches with progress
+   * Generic batch insert method for both TradFi and Crypto
    */
-  async insertTradFiRecordsBatched(records, symbol) {
+  async insertRecordsBatched(records, type) {
     const BATCH_SIZE = config.INSERT_BATCH_SIZE;
     let totalInserted = 0;
     let totalUpdated = 0;
     let failedBatches = 0;
     const totalBatches = Math.ceil(records.length / BATCH_SIZE);
-
-    console.log(`   🔄 Processing ${records.length.toLocaleString()} records in ${totalBatches} batches (size: ${BATCH_SIZE})...`);
 
     const startTime = Date.now();
 
@@ -188,7 +243,7 @@ class SimpleDatabaseManager {
       
       try {
         const batchStart = Date.now();
-        const { inserted, updated } = await this.insertTradFiBatch(batch);
+        const { inserted, updated } = await this.insertBatch(batch, type);
         const batchTime = Date.now() - batchStart;
         
         totalInserted += inserted;
@@ -196,44 +251,44 @@ class SimpleDatabaseManager {
         
         // Performance monitoring
         if (batchTime > config.SLOW_BATCH_THRESHOLD) {
-          console.log(`   ⚠️  Slow batch ${batchNum}: ${batchTime}ms`);
+          console.log(`     ⚠️  Slow batch ${batchNum}: ${batchTime}ms`);
         }
         
         // Show progress
         if (batchNum % config.STATS_INTERVAL === 0 || batchNum === totalBatches) {
           const progress = ((batchNum / totalBatches) * 100).toFixed(1);
-          console.log(`   📦 Batch ${batchNum}/${totalBatches} (${progress}%): ${inserted} inserted, ${updated} updated`);
+          console.log(`     📦 Batch ${batchNum}/${totalBatches} (${progress}%): ${inserted} inserted, ${updated} updated`);
         }
         
       } catch (error) {
         failedBatches++;
-        console.error(`   ❌ Failed batch ${batchNum}:`, error.message);
+        console.error(`     ❌ Failed batch ${batchNum}:`, error.message);
         
         // Check if we should continue or stop
         if (config.CONTINUE_ON_BATCH_FAILURE) {
           if (failedBatches >= config.MAX_FAILED_BATCHES) {
-            console.error(`   🚫 Too many failed batches (${failedBatches}), stopping import`);
+            console.error(`     🚫 Too many failed batches (${failedBatches}), stopping import`);
             break;
           }
-          console.log(`   ⏭️  Continuing with next batch...`);
+          console.log(`     ⏭️  Continuing with next batch...`);
         } else {
           throw error;
         }
       }
     }
 
-    if (config.ENABLE_TIMING_LOGS) {
+    if (config.ENABLE_TIMING_LOGS && totalBatches > 1) {
       const totalTime = Date.now() - startTime;
-      console.log(`   ⏱️  Total processing time: ${totalTime}ms (${(totalTime/totalBatches).toFixed(0)}ms/batch avg)`);
+      console.log(`     ⏱️  Batch processing time: ${totalTime}ms (${(totalTime/totalBatches).toFixed(0)}ms/batch avg)`);
     }
 
     return { inserted: totalInserted, updated: totalUpdated, failedBatches };
   }
 
   /**
-   * Insert a single batch of TradFi records
+   * Generic batch insert method for database operations
    */
-  async insertTradFiBatch(batch) {
+  async insertBatch(batch, type) {
     const client = await this.pool.connect();
     let inserted = 0;
     let updated = 0;
@@ -241,172 +296,59 @@ class SimpleDatabaseManager {
     try {
       await client.query('BEGIN');
 
-      const insertQuery = `
-        INSERT INTO tradfi_ohlcv (symbol, timestamp, open, high, low, close, volume)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (symbol, timestamp) 
-        DO UPDATE SET 
-          open = EXCLUDED.open,
-          high = EXCLUDED.high,
-          low = EXCLUDED.low,
-          close = EXCLUDED.close,
-          volume = EXCLUDED.volume
-        RETURNING (xmax = 0) AS inserted
-      `;
+      let insertQuery;
+      if (type === 'tradfi') {
+        insertQuery = `
+          INSERT INTO tradfi_ohlcv (symbol, timestamp, open, high, low, close, volume)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (symbol, timestamp) 
+          DO UPDATE SET 
+            open = EXCLUDED.open,
+            high = EXCLUDED.high,
+            low = EXCLUDED.low,
+            close = EXCLUDED.close,
+            volume = EXCLUDED.volume
+          RETURNING (xmax = 0) AS inserted
+        `;
+      } else {
+        insertQuery = `
+          INSERT INTO crypto_ohlcv (symbol, exchange, timestamp, open, high, low, close, volume)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          ON CONFLICT (symbol, exchange, timestamp) 
+          DO UPDATE SET 
+            open = EXCLUDED.open,
+            high = EXCLUDED.high,
+            low = EXCLUDED.low,
+            close = EXCLUDED.close,
+            volume = EXCLUDED.volume
+          RETURNING (xmax = 0) AS inserted
+        `;
+      }
 
       for (const record of batch) {
-        const values = [
-          record.symbol,
-          record.timestamp,
-          record.open,
-          record.high,
-          record.low,
-          record.close,
-          record.volume
-        ];
-
-        const result = await client.query(insertQuery, values);
-        if (result.rows[0].inserted) {
-          inserted++;
+        let values;
+        if (type === 'tradfi') {
+          values = [
+            record.symbol,
+            record.timestamp,
+            record.open,
+            record.high,
+            record.low,
+            record.close,
+            record.volume
+          ];
         } else {
-          updated++;
+          values = [
+            record.symbol,
+            record.exchange,
+            record.timestamp,
+            record.open,
+            record.high,
+            record.low,
+            record.close,
+            record.volume
+          ];
         }
-      }
-
-      await client.query('COMMIT');
-      return { inserted, updated };
-
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  /**
-   * Import Crypto CSV files
-   */
-  async importCryptoCSVs() {
-    const cryptoPath = './data/crypto';
-    let totalInserted = 0;
-    let totalUpdated = 0;
-    let filesProcessed = 0;
-
-    try {
-      const files = await fsPromises.readdir(cryptoPath);
-      const csvFiles = files.filter(f => f.endsWith('.csv'));
-      
-      console.log(`🪙 Found ${csvFiles.length} Crypto CSV files`);
-      
-      for (const filename of csvFiles) {
-        const filePath = path.join(cryptoPath, filename);
-        const { symbol, exchange } = this.extractCryptoInfo(filename);
-        
-        console.log(`📄 Processing: ${filename} (${symbol} on ${exchange})`);
-        
-        const { inserted, updated } = await this.importCryptoCSV(filePath, symbol, exchange);
-        totalInserted += inserted;
-        totalUpdated += updated;
-        filesProcessed++;
-        
-        console.log(`   ✅ ${inserted} inserted, ${updated} updated`);
-      }
-      
-      return { inserted: totalInserted, updated: totalUpdated, files: filesProcessed };
-      
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        console.log('📁 No Crypto data directory found');
-        return { inserted: 0, updated: 0, files: 0 };
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Import single Crypto CSV file
-   */
-  async importCryptoCSV(filePath, symbol, exchange) {
-    return new Promise((resolve, reject) => {
-      const records = [];
-      let rowCount = 0;
-      
-      fs.createReadStream(filePath)
-        .pipe(csv())
-        .on('data', (row) => {
-          // Data validation if enabled
-          if (config.VALIDATE_NUMBERS && !this.isValidRecord(row)) {
-            if (config.SKIP_MALFORMED_RECORDS) {
-              return;
-            }
-          }
-
-          records.push({
-            symbol: symbol,
-            exchange: exchange,
-            timestamp: new Date(row.timestamp),
-            open: parseFloat(row.open),
-            high: parseFloat(row.high),
-            low: parseFloat(row.low),
-            close: parseFloat(row.close),
-            volume: row.volume ? parseFloat(row.volume) : null
-          });
-          
-          rowCount++;
-          
-          if (rowCount % config.PROGRESS_INTERVAL === 0) {
-            console.log(`   📈 Parsed ${rowCount.toLocaleString()} rows...`);
-          }
-        })
-        .on('end', async () => {
-          try {
-            console.log(`   ✅ Finished parsing ${rowCount.toLocaleString()} rows`);
-            const result = await this.insertCryptoRecords(records);
-            resolve(result);
-          } catch (error) {
-            reject(error);
-          }
-        })
-        .on('error', reject);
-    });
-  }
-
-  /**
-   * Insert Crypto records with deduplication
-   */
-  async insertCryptoRecords(records) {
-    const client = await this.pool.connect();
-    let inserted = 0;
-    let updated = 0;
-
-    try {
-      await client.query('BEGIN');
-
-      const insertQuery = `
-        INSERT INTO crypto_ohlcv (symbol, exchange, timestamp, open, high, low, close, volume)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (symbol, exchange, timestamp) 
-        DO UPDATE SET 
-          open = EXCLUDED.open,
-          high = EXCLUDED.high,
-          low = EXCLUDED.low,
-          close = EXCLUDED.close,
-          volume = EXCLUDED.volume
-        RETURNING (xmax = 0) AS inserted
-      `;
-
-      for (const record of records) {
-        const values = [
-          record.symbol,
-          record.exchange,
-          record.timestamp,
-          record.open,
-          record.high,
-          record.low,
-          record.close,
-          record.volume
-        ];
 
         const result = await client.query(insertQuery, values);
         if (result.rows[0].inserted) {
@@ -456,11 +398,11 @@ class SimpleDatabaseManager {
   }
 
   /**
-   * Extract symbol from TradFi filename
+   * Extract symbol from filename
    */
   extractSymbolFromFilename(filename, type) {
-    // TradFi: deuidxeur_m1_2025-08-20_to_2025-08-22.csv
     if (type === 'tradfi') {
+      // TradFi: deuidxeur_m1_2025-08-20_to_2025-08-22.csv
       return filename.split('_')[0];
     }
     
