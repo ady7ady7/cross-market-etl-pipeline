@@ -9,6 +9,7 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const csv = require('csv-parser');
 const { pool } = require('../config/database');
+const config = require('../config/database_import');
 const MetadataManager = require('./metadata_manager');
 
 class SimpleDatabaseManager {
@@ -117,13 +118,19 @@ class SimpleDatabaseManager {
     return new Promise((resolve, reject) => {
       const records = [];
       let rowCount = 0;
-      const BATCH_SIZE = 1000; // Process in smaller batches
       
       console.log(`   📊 Starting to read CSV file...`);
       
       fs.createReadStream(filePath)
         .pipe(csv())
         .on('data', (row) => {
+          // Data validation if enabled
+          if (config.VALIDATE_NUMBERS && !this.isValidRecord(row)) {
+            if (config.SKIP_MALFORMED_RECORDS) {
+              return; // Skip this record
+            }
+          }
+
           records.push({
             symbol: symbol,
             timestamp: new Date(row.timestamp),
@@ -136,9 +143,14 @@ class SimpleDatabaseManager {
           
           rowCount++;
           
-          // Show progress every 10k rows
-          if (rowCount % 10000 === 0) {
+          // Show progress based on config
+          if (rowCount % config.PROGRESS_INTERVAL === 0) {
             console.log(`   📈 Parsed ${rowCount.toLocaleString()} rows...`);
+          }
+
+          // Memory management
+          if (rowCount >= config.MAX_RECORDS_IN_MEMORY) {
+            console.log(`   ⚠️  Reached memory limit (${config.MAX_RECORDS_IN_MEMORY}), processing batch...`);
           }
         })
         .on('end', async () => {
@@ -160,33 +172,62 @@ class SimpleDatabaseManager {
    * Insert TradFi records in batches with progress
    */
   async insertTradFiRecordsBatched(records, symbol) {
-    const BATCH_SIZE = 1000;
+    const BATCH_SIZE = config.INSERT_BATCH_SIZE;
     let totalInserted = 0;
     let totalUpdated = 0;
+    let failedBatches = 0;
     const totalBatches = Math.ceil(records.length / BATCH_SIZE);
 
-    console.log(`   🔄 Processing ${records.length.toLocaleString()} records in ${totalBatches} batches...`);
+    console.log(`   🔄 Processing ${records.length.toLocaleString()} records in ${totalBatches} batches (size: ${BATCH_SIZE})...`);
+
+    const startTime = Date.now();
 
     for (let i = 0; i < records.length; i += BATCH_SIZE) {
       const batch = records.slice(i, i + BATCH_SIZE);
       const batchNum = Math.floor(i / BATCH_SIZE) + 1;
       
       try {
+        const batchStart = Date.now();
         const { inserted, updated } = await this.insertTradFiBatch(batch);
+        const batchTime = Date.now() - batchStart;
+        
         totalInserted += inserted;
         totalUpdated += updated;
         
-        // Show progress every batch
-        const progress = ((batchNum / totalBatches) * 100).toFixed(1);
-        console.log(`   📦 Batch ${batchNum}/${totalBatches} (${progress}%): ${inserted} inserted, ${updated} updated`);
+        // Performance monitoring
+        if (batchTime > config.SLOW_BATCH_THRESHOLD) {
+          console.log(`   ⚠️  Slow batch ${batchNum}: ${batchTime}ms`);
+        }
+        
+        // Show progress
+        if (batchNum % config.STATS_INTERVAL === 0 || batchNum === totalBatches) {
+          const progress = ((batchNum / totalBatches) * 100).toFixed(1);
+          console.log(`   📦 Batch ${batchNum}/${totalBatches} (${progress}%): ${inserted} inserted, ${updated} updated`);
+        }
         
       } catch (error) {
+        failedBatches++;
         console.error(`   ❌ Failed batch ${batchNum}:`, error.message);
-        // Continue with next batch instead of failing completely
+        
+        // Check if we should continue or stop
+        if (config.CONTINUE_ON_BATCH_FAILURE) {
+          if (failedBatches >= config.MAX_FAILED_BATCHES) {
+            console.error(`   🚫 Too many failed batches (${failedBatches}), stopping import`);
+            break;
+          }
+          console.log(`   ⏭️  Continuing with next batch...`);
+        } else {
+          throw error;
+        }
       }
     }
 
-    return { inserted: totalInserted, updated: totalUpdated };
+    if (config.ENABLE_TIMING_LOGS) {
+      const totalTime = Date.now() - startTime;
+      console.log(`   ⏱️  Total processing time: ${totalTime}ms (${(totalTime/totalBatches).toFixed(0)}ms/batch avg)`);
+    }
+
+    return { inserted: totalInserted, updated: totalUpdated, failedBatches };
   }
 
   /**
@@ -289,10 +330,18 @@ class SimpleDatabaseManager {
   async importCryptoCSV(filePath, symbol, exchange) {
     return new Promise((resolve, reject) => {
       const records = [];
+      let rowCount = 0;
       
       fs.createReadStream(filePath)
         .pipe(csv())
         .on('data', (row) => {
+          // Data validation if enabled
+          if (config.VALIDATE_NUMBERS && !this.isValidRecord(row)) {
+            if (config.SKIP_MALFORMED_RECORDS) {
+              return;
+            }
+          }
+
           records.push({
             symbol: symbol,
             exchange: exchange,
@@ -303,9 +352,16 @@ class SimpleDatabaseManager {
             close: parseFloat(row.close),
             volume: row.volume ? parseFloat(row.volume) : null
           });
+          
+          rowCount++;
+          
+          if (rowCount % config.PROGRESS_INTERVAL === 0) {
+            console.log(`   📈 Parsed ${rowCount.toLocaleString()} rows...`);
+          }
         })
         .on('end', async () => {
           try {
+            console.log(`   ✅ Finished parsing ${rowCount.toLocaleString()} rows`);
             const result = await this.insertCryptoRecords(records);
             resolve(result);
           } catch (error) {
@@ -369,6 +425,34 @@ class SimpleDatabaseManager {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Validate record data
+   */
+  isValidRecord(record) {
+    const { open, high, low, close, timestamp } = record;
+    
+    // Check for required numeric fields
+    const prices = [open, high, low, close].map(p => parseFloat(p));
+    if (prices.some(p => isNaN(p) || p < 0)) {
+      return false;
+    }
+    
+    // Check max price value
+    if (prices.some(p => p > config.MAX_PRICE_VALUE)) {
+      return false;
+    }
+    
+    // Validate timestamp if enabled
+    if (config.SKIP_INVALID_TIMESTAMPS) {
+      const ts = new Date(timestamp);
+      if (isNaN(ts.getTime())) {
+        return false;
+      }
+    }
+    
+    return true;
   }
 
   /**
