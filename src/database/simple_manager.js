@@ -111,11 +111,15 @@ class SimpleDatabaseManager {
   }
 
   /**
-   * Import single TradFi CSV file
+   * Import single TradFi CSV file with streaming and progress
    */
   async importTradFiCSV(filePath, symbol) {
     return new Promise((resolve, reject) => {
       const records = [];
+      let rowCount = 0;
+      const BATCH_SIZE = 1000; // Process in smaller batches
+      
+      console.log(`   📊 Starting to read CSV file...`);
       
       fs.createReadStream(filePath)
         .pipe(csv())
@@ -129,10 +133,20 @@ class SimpleDatabaseManager {
             close: parseFloat(row.close),
             volume: row.volume ? parseFloat(row.volume) : null
           });
+          
+          rowCount++;
+          
+          // Show progress every 10k rows
+          if (rowCount % 10000 === 0) {
+            console.log(`   📈 Parsed ${rowCount.toLocaleString()} rows...`);
+          }
         })
         .on('end', async () => {
           try {
-            const result = await this.insertTradFiRecords(records);
+            console.log(`   ✅ Finished parsing ${rowCount.toLocaleString()} rows`);
+            console.log(`   💾 Starting database insertion...`);
+            
+            const result = await this.insertTradFiRecordsBatched(records, symbol);
             resolve(result);
           } catch (error) {
             reject(error);
@@ -143,9 +157,42 @@ class SimpleDatabaseManager {
   }
 
   /**
-   * Insert TradFi records with deduplication
+   * Insert TradFi records in batches with progress
    */
-  async insertTradFiRecords(records) {
+  async insertTradFiRecordsBatched(records, symbol) {
+    const BATCH_SIZE = 1000;
+    let totalInserted = 0;
+    let totalUpdated = 0;
+    const totalBatches = Math.ceil(records.length / BATCH_SIZE);
+
+    console.log(`   🔄 Processing ${records.length.toLocaleString()} records in ${totalBatches} batches...`);
+
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+      const batch = records.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+      
+      try {
+        const { inserted, updated } = await this.insertTradFiBatch(batch);
+        totalInserted += inserted;
+        totalUpdated += updated;
+        
+        // Show progress every batch
+        const progress = ((batchNum / totalBatches) * 100).toFixed(1);
+        console.log(`   📦 Batch ${batchNum}/${totalBatches} (${progress}%): ${inserted} inserted, ${updated} updated`);
+        
+      } catch (error) {
+        console.error(`   ❌ Failed batch ${batchNum}:`, error.message);
+        // Continue with next batch instead of failing completely
+      }
+    }
+
+    return { inserted: totalInserted, updated: totalUpdated };
+  }
+
+  /**
+   * Insert a single batch of TradFi records
+   */
+  async insertTradFiBatch(batch) {
     const client = await this.pool.connect();
     let inserted = 0;
     let updated = 0;
@@ -166,7 +213,7 @@ class SimpleDatabaseManager {
         RETURNING (xmax = 0) AS inserted
       `;
 
-      for (const record of records) {
+      for (const record of batch) {
         const values = [
           record.symbol,
           record.timestamp,
