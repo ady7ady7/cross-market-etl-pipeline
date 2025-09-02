@@ -211,7 +211,8 @@ class SymbolDatabaseManager {
         if (records.length === 0) return { inserted: 0, updated: 0 };
         
         streamBatchNumber++;
-        console.log(`   💾 Processing stream batch ${streamBatchNumber} (${records.length} records)...`);
+        // Remove this spam - we don't need to log every stream batch
+        // console.log(`   💾 Processing stream batch ${streamBatchNumber} (${records.length} records)...`);
         
         const result = await this.insertRecordsBatched(records, symbol, type, exchange);
         totalInserted += result.inserted;
@@ -271,7 +272,7 @@ class SymbolDatabaseManager {
               await processStreamBatch();
             }
             
-            console.log(`   🎉 Complete: ${totalInserted} inserted, ${totalUpdated} updated`);
+            console.log(`   🎉 Import complete: ${totalInserted.toLocaleString()} inserted, ${totalUpdated.toLocaleString()} updated`);
             resolve({ inserted: totalInserted, updated: totalUpdated });
           } catch (error) {
             reject(error);
@@ -296,7 +297,7 @@ class SymbolDatabaseManager {
     const startTime = Date.now();
     let lastProgressTime = startTime;
 
-    console.log(`     💾 Processing ${records.length.toLocaleString()} records in ${totalBatches} batches...`);
+    console.log(`     💾 Inserting ${records.length.toLocaleString()} records into ${tableName}...`);
 
     for (let i = 0; i < records.length; i += BATCH_SIZE) {
       const batch = records.slice(i, i + BATCH_SIZE);
@@ -310,16 +311,12 @@ class SymbolDatabaseManager {
         totalInserted += inserted;
         totalUpdated += updated;
         
-        // Only show meaningful progress updates
+        // Only show meaningful progress updates (every 30 seconds or major milestones)
         const now = Date.now();
-        if (config.SHOW_BATCH_PROGRESS && (
-          batchNum % config.STATS_INTERVAL === 0 || 
-          batchNum === totalBatches ||
-          now - lastProgressTime > 30000 // Every 30 seconds
-        )) {
+        if (now - lastProgressTime > 30000 || batchNum === totalBatches) {
           const progress = ((batchNum / totalBatches) * 100).toFixed(1);
           const recordsProcessed = Math.min(i + BATCH_SIZE, records.length);
-          console.log(`     📈 Progress: ${recordsProcessed.toLocaleString()}/${records.length.toLocaleString()} records (${progress}%) | ${totalInserted} inserted, ${totalUpdated} updated`);
+          console.log(`     📈 Progress: ${recordsProcessed.toLocaleString()}/${records.length.toLocaleString()} records (${progress}%)`);
           lastProgressTime = now;
         }
         
@@ -354,18 +351,18 @@ class SymbolDatabaseManager {
       }
     }
 
-    // Show final summary for this batch processing
+    // Show final summary
     const totalTime = Date.now() - startTime;
-    console.log(`     ✅ Batch processing complete: ${totalInserted.toLocaleString()} inserted, ${totalUpdated.toLocaleString()} updated in ${(totalTime/1000).toFixed(1)}s`);
+    console.log(`     ✅ Database insert complete: ${totalInserted.toLocaleString()} inserted, ${totalUpdated.toLocaleString()} updated in ${(totalTime/1000).toFixed(1)}s`);
     
-    // Show error summary if there were errors
-    if (failedBatches > 0 && config.SHOW_ERROR_SUMMARY) {
-      console.log(`     ⚠️  ${failedBatches} batches failed. First few errors:`);
-      errorMessages.slice(0, 3).forEach((msg, idx) => {
+    // Show error summary only if there were errors
+    if (failedBatches > 0) {
+      console.log(`     ⚠️  ${failedBatches} batches failed. Sample errors:`);
+      errorMessages.slice(0, 2).forEach((msg, idx) => {
         console.log(`        ${idx + 1}. ${msg}`);
       });
-      if (errorMessages.length > 3) {
-        console.log(`        ... and ${errorMessages.length - 3} more errors`);
+      if (errorMessages.length > 2) {
+        console.log(`        ... and ${errorMessages.length - 2} more errors`);
       }
     }
 
