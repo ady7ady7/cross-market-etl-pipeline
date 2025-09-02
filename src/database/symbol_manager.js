@@ -1,7 +1,6 @@
 /**
- * Simple Database Manager
- * Uses existing CSV data from your current importers
- * Handles deduplication and metadata generation with streaming
+ * Symbol-Based Database Manager
+ * Manages individual tables per symbol with metadata-driven operations
  */
 
 const fs = require('fs');
@@ -10,26 +9,26 @@ const path = require('path');
 const csv = require('csv-parser');
 const { pool } = require('../config/database');
 const config = require('../config/database_import');
-const MetadataManager = require('./metadata_manager');
+const SymbolMetadataManager = require('./symbol_metadata_manager');
 
-class SimpleDatabaseManager {
+class SymbolDatabaseManager {
   constructor() {
     this.pool = pool;
-    this.metadataManager = new MetadataManager();
+    this.metadataManager = new SymbolMetadataManager();
   }
 
   /**
-   * Initialize database schema
+   * Initialize database schema and functions
    */
   async initializeSchema() {
     try {
       const schemaSQL = await fsPromises.readFile(
-        path.join(__dirname, 'schema', 'simple_ohlcv.sql'),
+        path.join(__dirname, 'schema', 'symbol_based_ohlcv.sql'),
         'utf8'
       );
       
       await this.pool.query(schemaSQL);
-      console.log('✅ Database schema initialized');
+      console.log('✅ Database schema and functions initialized');
       return true;
     } catch (error) {
       console.error('❌ Failed to initialize database schema:', error);
@@ -38,10 +37,63 @@ class SimpleDatabaseManager {
   }
 
   /**
-   * Import all CSV files from your existing ETL pipeline
+   * Get table name for a symbol
+   */
+  getTableName(symbol, assetType, exchange = null) {
+    if (assetType === 'tradfi') {
+      return `${symbol.toLowerCase()}_tradfi_ohlcv`;
+    } else if (assetType === 'crypto') {
+      const cleanSymbol = symbol.replace('/', '').toLowerCase();
+      return `${cleanSymbol}_${exchange.toLowerCase()}_crypto_ohlcv`;
+    } else {
+      throw new Error(`Invalid asset type: ${assetType}`);
+    }
+  }
+
+  /**
+   * Create table for a specific symbol
+   */
+  async createSymbolTable(symbol, assetType, exchange = null) {
+    const client = await this.pool.connect();
+    
+    try {
+      if (assetType === 'tradfi') {
+        await client.query('SELECT create_tradfi_ohlcv_table($1)', [symbol]);
+      } else if (assetType === 'crypto') {
+        await client.query('SELECT create_crypto_ohlcv_table($1, $2)', [symbol, exchange]);
+      }
+      
+      const tableName = this.getTableName(symbol, assetType, exchange);
+      console.log(`✅ Created table: ${tableName}`);
+      
+    } catch (error) {
+      console.error(`❌ Failed to create table for ${symbol}:`, error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Check if table exists for symbol
+   */
+  async tableExists(symbol, assetType, exchange = null) {
+    const tableName = this.getTableName(symbol, assetType, exchange);
+    
+    try {
+      const result = await this.pool.query('SELECT table_exists($1)', [tableName]);
+      return result.rows[0].table_exists;
+    } catch (error) {
+      console.error(`Failed to check table existence for ${tableName}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Import all CSV files with symbol-specific tables
    */
   async importAllCSVFiles() {
-    console.log('🔄 Importing CSV files to database...\n');
+    console.log('🔄 Importing CSV files to symbol-specific tables...\n');
     
     try {
       // Import TradFi CSV files
@@ -51,15 +103,15 @@ class SimpleDatabaseManager {
       const cryptoResults = await this.importCryptoCSVs();
       
       // Generate metadata after import
-      console.log('📄 Generating metadata files...');
+      console.log('\n📄 Generating metadata files...');
       await this.metadataManager.generateAllMetadata();
       
       const totalInserted = tradfiResults.inserted + cryptoResults.inserted;
       const totalUpdated = tradfiResults.updated + cryptoResults.updated;
       
       console.log('\n📊 Import Summary:');
-      console.log(`✅ Total inserted: ${totalInserted}`);
-      console.log(`🔄 Total updated: ${totalUpdated}`);
+      console.log(`✅ Total inserted: ${totalInserted.toLocaleString()}`);
+      console.log(`🔄 Total updated: ${totalUpdated.toLocaleString()}`);
       console.log(`📁 TradFi files: ${tradfiResults.files}`);
       console.log(`📁 Crypto files: ${cryptoResults.files}`);
       
@@ -118,6 +170,11 @@ class SimpleDatabaseManager {
         const displayName = exchange ? `${symbol} on ${exchange}` : symbol;
         console.log(`📄 Processing: ${filename} (${displayName})`);
         
+        // Create table if it doesn't exist
+        if (!(await this.tableExists(symbol, type, exchange))) {
+          await this.createSymbolTable(symbol, type, exchange);
+        }
+        
         const { inserted, updated } = await this.importCSVFile(filePath, symbol, exchange, type);
         totalInserted += inserted;
         totalUpdated += updated;
@@ -138,7 +195,7 @@ class SimpleDatabaseManager {
   }
 
   /**
-   * Generic CSV import with streaming and batch processing
+   * Import CSV file to symbol-specific table
    */
   async importCSVFile(filePath, symbol, exchange, type) {
     return new Promise((resolve, reject) => {
@@ -156,7 +213,7 @@ class SimpleDatabaseManager {
         streamBatchNumber++;
         console.log(`   💾 Processing stream batch ${streamBatchNumber} (${records.length} records)...`);
         
-        const result = await this.insertRecordsBatched(records, type);
+        const result = await this.insertRecordsBatched(records, symbol, type, exchange);
         totalInserted += result.inserted;
         totalUpdated += result.updated;
         
@@ -174,19 +231,18 @@ class SimpleDatabaseManager {
             }
           }
 
+          const timestamp = new Date(row.timestamp);
+          const dayOfWeek = this.getDayOfWeek(timestamp);
+
           const record = {
-            symbol: symbol,
-            timestamp: new Date(row.timestamp),
+            timestamp: timestamp,
             open: parseFloat(row.open),
             high: parseFloat(row.high),
             low: parseFloat(row.low),
             close: parseFloat(row.close),
-            volume: row.volume ? parseFloat(row.volume) : null
+            volume: row.volume ? parseFloat(row.volume) : null,
+            day_of_week: dayOfWeek
           };
-          
-          if (exchange) {
-            record.exchange = exchange;
-          }
           
           records.push(record);
           rowCount++;
@@ -226,14 +282,15 @@ class SimpleDatabaseManager {
   }
 
   /**
-   * Generic batch insert method for both TradFi and Crypto
+   * Insert records to specific symbol table
    */
-  async insertRecordsBatched(records, type) {
+  async insertRecordsBatched(records, symbol, assetType, exchange = null) {
     const BATCH_SIZE = config.INSERT_BATCH_SIZE;
     let totalInserted = 0;
     let totalUpdated = 0;
     let failedBatches = 0;
     const totalBatches = Math.ceil(records.length / BATCH_SIZE);
+    const tableName = this.getTableName(symbol, assetType, exchange);
 
     const startTime = Date.now();
 
@@ -243,7 +300,7 @@ class SimpleDatabaseManager {
       
       try {
         const batchStart = Date.now();
-        const { inserted, updated } = await this.insertBatch(batch, type);
+        const { inserted, updated } = await this.insertBatch(batch, tableName);
         const batchTime = Date.now() - batchStart;
         
         totalInserted += inserted;
@@ -286,9 +343,9 @@ class SimpleDatabaseManager {
   }
 
   /**
-   * Generic batch insert method for database operations
+   * Insert batch into specific table
    */
-  async insertBatch(batch, type) {
+  async insertBatch(batch, tableName) {
     const client = await this.pool.connect();
     let inserted = 0;
     let updated = 0;
@@ -296,59 +353,30 @@ class SimpleDatabaseManager {
     try {
       await client.query('BEGIN');
 
-      let insertQuery;
-      if (type === 'tradfi') {
-        insertQuery = `
-          INSERT INTO tradfi_ohlcv (symbol, timestamp, open, high, low, close, volume)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (symbol, timestamp) 
-          DO UPDATE SET 
-            open = EXCLUDED.open,
-            high = EXCLUDED.high,
-            low = EXCLUDED.low,
-            close = EXCLUDED.close,
-            volume = EXCLUDED.volume
-          RETURNING (xmax = 0) AS inserted
-        `;
-      } else {
-        insertQuery = `
-          INSERT INTO crypto_ohlcv (symbol, exchange, timestamp, open, high, low, close, volume)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT (symbol, exchange, timestamp) 
-          DO UPDATE SET 
-            open = EXCLUDED.open,
-            high = EXCLUDED.high,
-            low = EXCLUDED.low,
-            close = EXCLUDED.close,
-            volume = EXCLUDED.volume
-          RETURNING (xmax = 0) AS inserted
-        `;
-      }
+      const insertQuery = `
+        INSERT INTO ${tableName} (timestamp, open, high, low, close, volume, day_of_week)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (timestamp) 
+        DO UPDATE SET 
+          open = EXCLUDED.open,
+          high = EXCLUDED.high,
+          low = EXCLUDED.low,
+          close = EXCLUDED.close,
+          volume = EXCLUDED.volume,
+          day_of_week = EXCLUDED.day_of_week
+        RETURNING (xmax = 0) AS inserted
+      `;
 
       for (const record of batch) {
-        let values;
-        if (type === 'tradfi') {
-          values = [
-            record.symbol,
-            record.timestamp,
-            record.open,
-            record.high,
-            record.low,
-            record.close,
-            record.volume
-          ];
-        } else {
-          values = [
-            record.symbol,
-            record.exchange,
-            record.timestamp,
-            record.open,
-            record.high,
-            record.low,
-            record.close,
-            record.volume
-          ];
-        }
+        const values = [
+          record.timestamp,
+          record.open,
+          record.high,
+          record.low,
+          record.close,
+          record.volume,
+          record.day_of_week
+        ];
 
         const result = await client.query(insertQuery, values);
         if (result.rows[0].inserted) {
@@ -367,6 +395,14 @@ class SimpleDatabaseManager {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Get day of week from timestamp
+   */
+  getDayOfWeek(timestamp) {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[timestamp.getDay()];
   }
 
   /**
@@ -422,46 +458,6 @@ class SimpleDatabaseManager {
       exchange: 'binance' // Default exchange
     };
   }
-
-  /**
-   * Get database statistics
-   */
-  async getStats() {
-    try {
-      const queries = {
-        tradfi: `
-          SELECT 
-            symbol,
-            COUNT(*) as record_count,
-            MIN(timestamp) as first_timestamp,
-            MAX(timestamp) as last_timestamp
-          FROM tradfi_ohlcv 
-          GROUP BY symbol
-        `,
-        crypto: `
-          SELECT 
-            symbol,
-            exchange,
-            COUNT(*) as record_count,
-            MIN(timestamp) as first_timestamp,
-            MAX(timestamp) as last_timestamp
-          FROM crypto_ohlcv 
-          GROUP BY symbol, exchange
-        `
-      };
-
-      const results = {};
-      for (const [key, query] of Object.entries(queries)) {
-        const result = await this.pool.query(query);
-        results[key] = result.rows;
-      }
-
-      return results;
-    } catch (error) {
-      console.error('Failed to get database stats:', error);
-      throw error;
-    }
-  }
 }
 
-module.exports = SimpleDatabaseManager;
+module.exports = SymbolDatabaseManager;
