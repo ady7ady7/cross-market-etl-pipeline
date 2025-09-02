@@ -3,6 +3,12 @@
  * Defines which instruments to fetch from various data sources
  */
 
+const fs = require('fs');
+const path = require('path');
+
+// Load master configuration
+const masterConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '../../config.json'), 'utf8'));
+
 // TradFi Assets List - simple symbol and name pairs
 const TRADFI_ASSETS = [
   { symbol: 'deuidxeur', name: 'DAX Index' },
@@ -15,42 +21,42 @@ const TRADFI_ASSETS = [
 // Crypto Assets List - for Python ccxt implementation
 const CRYPTO_ASSETS = [
   // Will be populated when we implement crypto data fetching
-   { symbol: 'BTC/USDT', name: 'Bitcoin', exchange: 'binance' },
-   { symbol: 'ETH/USDT', name: 'Ethereum', exchange: 'binance' },
+  // { symbol: 'BTC/USDT', name: 'Bitcoin', exchange: 'binance' },
+  // { symbol: 'ETH/USDT', name: 'Ethereum', exchange: 'binance' },
   // { symbol: 'ADA/USDT', name: 'Cardano', exchange: 'binance' }
 ];
 
-// Global TradFi Configuration
+// Global TradFi Configuration - uses master config
 const TRADFI_CONFIG = {
-  timeframe: 'm1',                    // Single timeframe for all TradFi assets
-  batchSize: 5,                      // Batch size for all TradFi downloads
-  pauseBetweenBatchesMs: 5000,        // Pause between batches for all TradFi assets
+  timeframe: masterConfig.tradfi.timeframe,
+  batchSize: masterConfig.tradfi.batchSize,
+  pauseBetweenBatchesMs: masterConfig.tradfi.pauseBetweenBatchesMs,
   availableTimeframes: ['m1', 'm5', 'h1', 'd1']
 };
 
-// Global Crypto Configuration (for Python implementation)
+// Global Crypto Configuration - uses master config  
 const CRYPTO_CONFIG = {
-  timeframe: '1m',                    // Single timeframe for all crypto assets
-  defaultExchange: 'binance',         // Default exchange
+  timeframe: masterConfig.crypto.timeframe,
+  defaultExchange: masterConfig.crypto.defaultExchange,
   availableTimeframes: ['1m', '5m', '1h', '1d']
 };
 
 const DATA_CONFIG = {
-  // Default date range - YYYY-MM-DD format (use recent weekdays with market data)
+  // Default date range - from master config
   defaultDateRange: {
-    from: new Date("2024-01-10"),     // Wednesday
-    to: new Date("2025-08-29")        // Friday (ensure weekdays with market data)
+    from: new Date(masterConfig.dateRanges.default.from),
+    to: new Date(masterConfig.dateRanges.default.to)
   },
   
-  // Data storage paths
+  // Data storage paths - from master config
   dataPaths: {
-    tradfi: './data/tradfi',
-    crypto: './data/crypto'
+    tradfi: masterConfig.paths.tradfiData,
+    crypto: masterConfig.paths.cryptoData
   },
   
-  // Logging configuration
+  // Logging configuration - from master config
   logConfig: {
-    logsPath: './logs',
+    logsPath: masterConfig.paths.logs,
     enableFileLogging: true,
     enableConsoleLogging: true
   },

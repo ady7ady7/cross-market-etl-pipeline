@@ -1,0 +1,31 @@
+{
+  "dateRanges": {
+    "default": {
+      "from": "2024-12-03",
+      "to": "2025-08-29"
+    }
+  },
+  "tradfi": {
+    "timeframe": "m1",
+    "batchSize": 5,
+    "pauseBetweenBatchesMs": 5000
+  },
+  "crypto": {
+    "timeframe": "1m",
+    "defaultExchange": "binance",
+    "batchSize": 1000,
+    "rateLimitDelay": 3.0,
+    "maxRetries": 3
+  },
+  "database": {
+    "insertBatchSize": 1000,
+    "progressInterval": 20000,
+    "enableStreaming": true
+  },
+  "paths": {
+    "tradfiData": "./data/tradfi",
+    "cryptoData": "./data/crypto",
+    "logs": "./logs",
+    "metadata": "./metadata"
+  }
+}

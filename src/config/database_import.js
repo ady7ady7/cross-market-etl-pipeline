@@ -1,20 +1,26 @@
 /**
  * Database Import Configuration
- * Optimized for sanity and meaningful logging
+ * Uses master config for centralized settings
  */
 
-// Batch Processing Settings
-const READ_BATCH_SIZE = 1000;           // Records to read before processing
-const INSERT_BATCH_SIZE = 5000;        // Records per database transaction (larger = faster)
-const PROGRESS_INTERVAL = 50000;       // Show progress every N rows (much less spam)
+const fs = require('fs');
+const path = require('path');
 
-// Streaming Processing Settings
-const STREAM_BATCH_SIZE = 100000;      // Process in very large chunks (less frequent flushes)
-const ENABLE_STREAMING = true;         // Use streaming for large files
+// Load master configuration
+const masterConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '../../config.json'), 'utf8'));
+
+// Batch Processing Settings - from master config
+const READ_BATCH_SIZE = 1000;
+const INSERT_BATCH_SIZE = masterConfig.database.insertBatchSize;
+const PROGRESS_INTERVAL = masterConfig.database.progressInterval;
+
+// Streaming Processing Settings - from master config
+const STREAM_BATCH_SIZE = 50000;
+const ENABLE_STREAMING = masterConfig.database.enableStreaming;
 
 // Database Connection Settings
-const QUERY_TIMEOUT = 60000;           // Query timeout in ms (1 minute)
-const MAX_RETRIES = 2;                 // Retry failed operations (fail faster)
+const QUERY_TIMEOUT = 5000;           // Query timeout in ms (1 minute)
+const MAX_RETRIES = 4;                 // Retry failed operations (fail faster)
 const RETRY_DELAY = 3000;              // Delay between retries in ms
 
 // Error Handling (MUCH less spam)
