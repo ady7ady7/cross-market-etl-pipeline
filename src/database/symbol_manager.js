@@ -289,10 +289,14 @@ class SymbolDatabaseManager {
     let totalInserted = 0;
     let totalUpdated = 0;
     let failedBatches = 0;
+    let errorMessages = [];
     const totalBatches = Math.ceil(records.length / BATCH_SIZE);
     const tableName = this.getTableName(symbol, assetType, exchange);
 
     const startTime = Date.now();
+    let lastProgressTime = startTime;
+
+    console.log(`     💾 Processing ${records.length.toLocaleString()} records in ${totalBatches} batches...`);
 
     for (let i = 0; i < records.length; i += BATCH_SIZE) {
       const batch = records.slice(i, i + BATCH_SIZE);
@@ -306,20 +310,33 @@ class SymbolDatabaseManager {
         totalInserted += inserted;
         totalUpdated += updated;
         
-        // Performance monitoring
-        if (batchTime > config.SLOW_BATCH_THRESHOLD) {
-          console.log(`     ⚠️  Slow batch ${batchNum}: ${batchTime}ms`);
+        // Only show meaningful progress updates
+        const now = Date.now();
+        if (config.SHOW_BATCH_PROGRESS && (
+          batchNum % config.STATS_INTERVAL === 0 || 
+          batchNum === totalBatches ||
+          now - lastProgressTime > 30000 // Every 30 seconds
+        )) {
+          const progress = ((batchNum / totalBatches) * 100).toFixed(1);
+          const recordsProcessed = Math.min(i + BATCH_SIZE, records.length);
+          console.log(`     📈 Progress: ${recordsProcessed.toLocaleString()}/${records.length.toLocaleString()} records (${progress}%) | ${totalInserted} inserted, ${totalUpdated} updated`);
+          lastProgressTime = now;
         }
         
-        // Show progress
-        if (batchNum % config.STATS_INTERVAL === 0 || batchNum === totalBatches) {
-          const progress = ((batchNum / totalBatches) * 100).toFixed(1);
-          console.log(`     📦 Batch ${batchNum}/${totalBatches} (${progress}%): ${inserted} inserted, ${updated} updated`);
+        // Only warn about genuinely slow batches
+        if (batchTime > config.SLOW_BATCH_THRESHOLD) {
+          console.log(`     ⚠️  Slow batch detected: ${(batchTime/1000).toFixed(1)}s for ${batch.length} records`);
         }
         
       } catch (error) {
         failedBatches++;
-        console.error(`     ❌ Failed batch ${batchNum}:`, error.message);
+        const errorMsg = `Batch ${batchNum} failed: ${error.message}`;
+        errorMessages.push(errorMsg);
+        
+        // Only show first few batch errors, then summarize
+        if (config.SHOW_INDIVIDUAL_BATCH_ERRORS && failedBatches <= 3) {
+          console.error(`     ❌ ${errorMsg}`);
+        }
         
         // Check if we should continue or stop
         if (config.CONTINUE_ON_BATCH_FAILURE) {
@@ -327,19 +344,32 @@ class SymbolDatabaseManager {
             console.error(`     🚫 Too many failed batches (${failedBatches}), stopping import`);
             break;
           }
-          console.log(`     ⏭️  Continuing with next batch...`);
+          
+          if (failedBatches === 1) {
+            console.log(`     ⏭️  Continuing despite errors (will summarize at end)...`);
+          }
         } else {
           throw error;
         }
       }
     }
 
-    if (config.ENABLE_TIMING_LOGS && totalBatches > 1) {
-      const totalTime = Date.now() - startTime;
-      console.log(`     ⏱️  Batch processing time: ${totalTime}ms (${(totalTime/totalBatches).toFixed(0)}ms/batch avg)`);
+    // Show final summary for this batch processing
+    const totalTime = Date.now() - startTime;
+    console.log(`     ✅ Batch processing complete: ${totalInserted.toLocaleString()} inserted, ${totalUpdated.toLocaleString()} updated in ${(totalTime/1000).toFixed(1)}s`);
+    
+    // Show error summary if there were errors
+    if (failedBatches > 0 && config.SHOW_ERROR_SUMMARY) {
+      console.log(`     ⚠️  ${failedBatches} batches failed. First few errors:`);
+      errorMessages.slice(0, 3).forEach((msg, idx) => {
+        console.log(`        ${idx + 1}. ${msg}`);
+      });
+      if (errorMessages.length > 3) {
+        console.log(`        ... and ${errorMessages.length - 3} more errors`);
+      }
     }
 
-    return { inserted: totalInserted, updated: totalUpdated, failedBatches };
+    return { inserted: totalInserted, updated: totalUpdated, failedBatches, errorMessages };
   }
 
   /**

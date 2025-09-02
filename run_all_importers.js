@@ -46,7 +46,15 @@ class DataImportOrchestrator {
     
     return new Promise((resolve, reject) => {
       const pythonPath = path.join(__dirname, 'src', 'etl', 'crypto_importer.py');
-      const pythonProcess = spawn('python', [pythonPath], {
+      
+      // Use the exact Python executable that pyenv provides
+      const pythonCmd = process.platform === 'win32' 
+        ? 'C:\\Users\\HARDPC\\.pyenv\\pyenv-win\\versions\\3.12.2\\python.exe'
+        : 'python3';
+      
+      console.log('🐍 Using Python executable:', pythonCmd);
+      
+      const pythonProcess = spawn(pythonCmd, [pythonPath], {
         stdio: 'inherit',
         cwd: __dirname
       });
