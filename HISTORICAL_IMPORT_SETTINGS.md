@@ -17,8 +17,8 @@ const TRADFI_CONFIG = {
 // Historical date range (modify as needed)
 const DATA_CONFIG = {
   defaultDateRange: {
-    from: new Date("2023-01-01"),    // Start of historical range
-    to: new Date("2025-01-01")       // End of historical range
+    from: new Date("2024-01-01"),    // Start of historical range
+    to: new Date("2025-08-29")       // End of historical range
   }
 };
 ```
@@ -31,8 +31,8 @@ const DATA_CONFIG = {
 # Historical date range
 DATA_CONFIG = {
     'default_date_range': {
-        'from': '2023-01-01',
-        'to': '2025-01-01'
+        'from': '2024-01-01',
+        'to': '2025-08-29'
     }
 }
 

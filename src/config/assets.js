@@ -15,8 +15,8 @@ const TRADFI_ASSETS = [
 // Crypto Assets List - for Python ccxt implementation
 const CRYPTO_ASSETS = [
   // Will be populated when we implement crypto data fetching
-  // { symbol: 'BTC/USDT', name: 'Bitcoin', exchange: 'binance' },
-  // { symbol: 'ETH/USDT', name: 'Ethereum', exchange: 'binance' },
+   { symbol: 'BTC/USDT', name: 'Bitcoin', exchange: 'binance' },
+   { symbol: 'ETH/USDT', name: 'Ethereum', exchange: 'binance' },
   // { symbol: 'ADA/USDT', name: 'Cardano', exchange: 'binance' }
 ];
 
@@ -39,7 +39,7 @@ const DATA_CONFIG = {
   // Default date range - YYYY-MM-DD format (use recent weekdays with market data)
   defaultDateRange: {
     from: new Date("2024-01-10"),     // Wednesday
-    to: new Date("2025-08-26")        // Friday (ensure weekdays with market data)
+    to: new Date("2025-08-29")        // Friday (ensure weekdays with market data)
   },
   
   // Data storage paths
