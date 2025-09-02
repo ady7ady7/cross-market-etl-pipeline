@@ -5,6 +5,16 @@
       "to": "2025-08-29"
     }
   },
+  "assets": {
+    "tradfi": [
+      { "symbol": "deuidxeur", "name": "DAX Index" }
+    ],
+    "crypto_disabled": [ 
+      { "symbol": "BTC/USDT", "name": "Bitcoin", "exchange": "binance" },
+      { "symbol": "ETH/USDT", "name": "Ethereum", "exchange": "binance" }
+    ],
+    "crypto": []
+    },
   "tradfi": {
     "timeframe": "m1",
     "batchSize": 5,
@@ -18,8 +28,8 @@
     "maxRetries": 3
   },
   "database": {
-    "insertBatchSize": 1000,
-    "progressInterval": 20000,
+    "insertBatchSize": 5000,
+    "progressInterval": 50000,
     "enableStreaming": true
   },
   "paths": {

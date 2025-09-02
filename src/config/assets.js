@@ -1,6 +1,6 @@
 /**
  * Asset configuration for cross-market ETL pipeline
- * Defines which instruments to fetch from various data sources
+ * Loads asset definitions from master config.json
  */
 
 const fs = require('fs');
@@ -9,22 +9,11 @@ const path = require('path');
 // Load master configuration
 const masterConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '../../config.json'), 'utf8'));
 
-// TradFi Assets List - simple symbol and name pairs
-const TRADFI_ASSETS = [
-  { symbol: 'deuidxeur', name: 'DAX Index' },
-  // { symbol: 'eurusd', name: 'EUR/USD' },
-  // { symbol: 'gbpusd', name: 'GBP/USD' },
-  // { symbol: 'usdjpy', name: 'USD/JPY' },
-  // { symbol: 'usdchf', name: 'USD/CHF' }
-];
+// TradFi Assets List - from master config
+const TRADFI_ASSETS = masterConfig.assets.tradfi;
 
-// Crypto Assets List - for Python ccxt implementation
-const CRYPTO_ASSETS = [
-  // Will be populated when we implement crypto data fetching
-  // { symbol: 'BTC/USDT', name: 'Bitcoin', exchange: 'binance' },
-  // { symbol: 'ETH/USDT', name: 'Ethereum', exchange: 'binance' },
-  // { symbol: 'ADA/USDT', name: 'Cardano', exchange: 'binance' }
-];
+// Crypto Assets List - from master config
+const CRYPTO_ASSETS = masterConfig.assets.crypto;
 
 // Global TradFi Configuration - uses master config
 const TRADFI_CONFIG = {

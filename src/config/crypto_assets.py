@@ -1,43 +1,45 @@
 """
 Crypto asset configuration for Python ccxt implementation
-Separate config file for crypto assets to avoid Node.js/Python conflicts
+Loads asset definitions from master config.json
 """
 
+import json
+import os
 from datetime import datetime, timedelta
 
-# Crypto Assets List - for ccxt implementation
-CRYPTO_ASSETS = [
-    {'symbol': 'BTC/USDT', 'name': 'Bitcoin', 'exchange': 'binance'},
-    # Uncomment and add crypto assets as needed
-    # {'symbol': 'ETH/USDT', 'name': 'Ethereum', 'exchange': 'binance'},
-    # {'symbol': 'ADA/USDT', 'name': 'Cardano', 'exchange': 'binance'},
-    # {'symbol': 'SOL/USDT', 'name': 'Solana', 'exchange': 'binance'},
-    # {'symbol': 'DOT/USDT', 'name': 'Polkadot', 'exchange': 'binance'}
-]
+# Load master configuration
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+config_path = os.path.join(project_root, 'config.json')
 
-# Global Crypto Configuration
+with open(config_path, 'r') as f:
+    master_config = json.load(f)
+
+# Crypto Assets List - from master config
+CRYPTO_ASSETS = master_config['assets']['crypto']
+
+# Global Crypto Configuration - from master config
 CRYPTO_CONFIG = {
-    'timeframe': '1m',                    # Single timeframe for all crypto assets
-    'default_exchange': 'binance',        # Default exchange
+    'timeframe': master_config['crypto']['timeframe'],
+    'default_exchange': master_config['crypto']['defaultExchange'],
     'available_timeframes': ['1m', '5m', '1h', '1d'],
-    'batch_size': 1000,                   # Records per request (ccxt typically handles larger batches)
-    'rate_limit_delay': 3.0,              # Seconds between requests
-    'max_retries': 3,                     # Maximum retry attempts for failed requests
-    'timeout': 30000                      # Request timeout in milliseconds
+    'batch_size': master_config['crypto']['batchSize'],
+    'rate_limit_delay': master_config['crypto']['rateLimitDelay'],
+    'max_retries': master_config['crypto']['maxRetries'],
+    'timeout': 30000
 }
 
-# Data configuration for Python
+# Data configuration for Python - from master config
 DATA_CONFIG = {
-    # Default date range - matches Node.js config
+    # Default date range - from master config
     'default_date_range': {
-        'from': '2025-01-10',             # YYYY-MM-DD format
-        'to': '2025-08-26'                # YYYY-MM-DD format
+        'from': master_config['dateRanges']['default']['from'],
+        'to': master_config['dateRanges']['default']['to']
     },
     
-    # Data storage paths (relative to project root)
+    # Data storage paths - from master config
     'data_paths': {
-        'crypto': './data/crypto',
-        'logs': './logs'
+        'crypto': master_config['paths']['cryptoData'],
+        'logs': master_config['paths']['logs']
     },
     
     # Logging configuration
@@ -57,16 +59,16 @@ DATA_CONFIG = {
 # Exchange-specific configurations
 EXCHANGE_CONFIGS = {
     'binance': {
-        'sandbox': False,                 # Set to True for testing
-        'rateLimit': 1200,               # Requests per minute
+        'sandbox': False,
+        'rateLimit': 1200,
         'enableRateLimit': True,
         'options': {
-            'defaultType': 'spot'        # 'spot', 'future', 'delivery'
+            'defaultType': 'spot'
         }
     },
     'coinbase': {
         'sandbox': False,
-        'rateLimit': 10000,              # More permissive rate limit
+        'rateLimit': 10000,
         'enableRateLimit': True
     },
     'kraken': {
