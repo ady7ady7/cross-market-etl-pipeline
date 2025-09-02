@@ -201,30 +201,12 @@ class SymbolDatabaseManager {
     return new Promise((resolve, reject) => {
       let records = [];
       let rowCount = 0;
-      let totalInserted = 0;
-      let totalUpdated = 0;
-      let streamBatchNumber = 0;
       
-      console.log(`   📊 Starting to read CSV file...`);
-      
-      const processStreamBatch = async () => {
-        if (records.length === 0) return { inserted: 0, updated: 0 };
-        
-        streamBatchNumber++;
-        // Remove this spam - we don't need to log every stream batch
-        // console.log(`   💾 Processing stream batch ${streamBatchNumber} (${records.length} records)...`);
-        
-        const result = await this.insertRecordsBatched(records, symbol, type, exchange);
-        totalInserted += result.inserted;
-        totalUpdated += result.updated;
-        
-        records = []; // Clear the batch
-        return result;
-      };
+      console.log(`   📊 Reading CSV file...`);
       
       fs.createReadStream(filePath)
         .pipe(csv())
-        .on('data', async (row) => {
+        .on('data', (row) => {
           // Data validation if enabled
           if (config.VALIDATE_NUMBERS && !this.isValidRecord(row)) {
             if (config.SKIP_MALFORMED_RECORDS) {
@@ -248,32 +230,21 @@ class SymbolDatabaseManager {
           records.push(record);
           rowCount++;
           
-          // Show progress
+          // Show progress every 50,000 rows
           if (rowCount % config.PROGRESS_INTERVAL === 0) {
             console.log(`   📈 Parsed ${rowCount.toLocaleString()} rows...`);
-          }
-
-          // Process stream batch when it gets large enough (memory management)
-          if (config.ENABLE_STREAMING && records.length >= config.STREAM_BATCH_SIZE) {
-            try {
-              await processStreamBatch();
-            } catch (error) {
-              console.error('   ❌ Failed to process stream batch:', error.message);
-            }
           }
         })
         .on('end', async () => {
           try {
             console.log(`   ✅ Finished parsing ${rowCount.toLocaleString()} rows`);
             
-            // Process any remaining records
-            if (records.length > 0) {
-              console.log(`   💾 Processing final batch (${records.length} records)...`);
-              await processStreamBatch();
-            }
+            // Insert all records in one go
+            console.log(`   💾 Inserting ${records.length.toLocaleString()} records...`);
+            const result = await this.insertRecordsBatched(records, symbol, type, exchange);
             
-            console.log(`   🎉 Import complete: ${totalInserted.toLocaleString()} inserted, ${totalUpdated.toLocaleString()} updated`);
-            resolve({ inserted: totalInserted, updated: totalUpdated });
+            console.log(`   🎉 Import complete: ${result.inserted.toLocaleString()} inserted, ${result.updated.toLocaleString()} updated`);
+            resolve({ inserted: result.inserted, updated: result.updated });
           } catch (error) {
             reject(error);
           }
@@ -297,7 +268,7 @@ class SymbolDatabaseManager {
     const startTime = Date.now();
     let lastProgressTime = startTime;
 
-    console.log(`     💾 Inserting ${records.length.toLocaleString()} records into ${tableName}...`);
+    console.log(`     💾 Processing ${records.length.toLocaleString()} records...`);
 
     for (let i = 0; i < records.length; i += BATCH_SIZE) {
       const batch = records.slice(i, i + BATCH_SIZE);
@@ -342,8 +313,9 @@ class SymbolDatabaseManager {
             break;
           }
           
+          // Only log this message ONCE
           if (failedBatches === 1) {
-            console.log(`     ⏭️  Continuing despite errors (will summarize at end)...`);
+            console.log(`     ⏭️  Continuing despite errors (${config.MAX_FAILED_BATCHES - 1} more failures allowed)...`);
           }
         } else {
           throw error;
