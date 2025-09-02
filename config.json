@@ -9,6 +9,8 @@
     "tradfi": [
       { "symbol": "deuidxeur", "name": "DAX Index" }
     ],
+    "tradfi_disabled": [],
+
     "crypto_disabled": [ 
       { "symbol": "BTC/USDT", "name": "Bitcoin", "exchange": "binance" },
       { "symbol": "ETH/USDT", "name": "Ethereum", "exchange": "binance" }
