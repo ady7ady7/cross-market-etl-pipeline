@@ -11,10 +11,13 @@ const { pool } = require('../config/database');
 const config = require('../config/database_import');
 const SymbolMetadataManager = require('./symbol_metadata_manager');
 
+const DatabaseMetadataManager = require('./db_metadata_manager');
+
 class SymbolDatabaseManager {
   constructor() {
     this.pool = pool;
-    this.metadataManager = new SymbolMetadataManager();
+    this.metadataManager = new SymbolMetadataManager(); // Keep for backward compatibility
+    this.dbMetadataManager = new DatabaseMetadataManager(); // New database-based metadata
   }
 
   /**
@@ -22,12 +25,16 @@ class SymbolDatabaseManager {
    */
   async initializeSchema() {
     try {
+      // Initialize OHLCV tables schema
       const schemaSQL = await fsPromises.readFile(
         path.join(__dirname, 'schema', 'symbol_based_ohlcv.sql'),
         'utf8'
       );
-      
       await this.pool.query(schemaSQL);
+      
+      // Initialize metadata schema
+      await this.dbMetadataManager.initializeMetadataSchema();
+      
       console.log('✅ Database schema and functions initialized');
       return true;
     } catch (error) {
@@ -65,6 +72,9 @@ class SymbolDatabaseManager {
       
       const tableName = this.getTableName(symbol, assetType, exchange);
       console.log(`✅ Created table: ${tableName}`);
+      
+      // Create metadata record for this table
+      await this.dbMetadataManager.upsertSymbolMetadata(symbol, tableName, assetType, exchange);
       
     } catch (error) {
       console.error(`❌ Failed to create table for ${symbol}:`, error);
@@ -244,6 +254,11 @@ class SymbolDatabaseManager {
             const result = await this.insertRecordsBatched(records, symbol, type, exchange);
             
             console.log(`   🎉 Import complete: ${result.inserted.toLocaleString()} inserted, ${result.updated.toLocaleString()} updated`);
+            
+            // Update database metadata after successful import
+            const tableName = this.getTableName(symbol, type, exchange);
+            await this.dbMetadataManager.markSymbolUpdated(tableName);
+            
             resolve({ inserted: result.inserted, updated: result.updated });
           } catch (error) {
             reject(error);
