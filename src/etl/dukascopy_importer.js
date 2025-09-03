@@ -145,7 +145,7 @@ async function main() {
     const firstAsset = TRADFI_ASSETS[0];
     console.log(`🎯 Fetching ${firstAsset.name} data with configured date range...\n`);
     
-    const result = await importer.fetchFirstAsset();
+    const result = await importer.fetchAllAssets();
     
     console.log('\n📋 Summary:');
     console.log(`- Asset: ${result.asset.name} (${result.asset.symbol})`);

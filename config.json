@@ -1,21 +1,45 @@
 {
   "dateRanges": {
     "default": {
-      "from": "2024-12-03",
+      "from": "2024-01-10",
       "to": "2025-08-29"
     }
   },
   "assets": {
-    "tradfi": [
-      { "symbol": "deuidxeur", "name": "DAX Index" }
+    "tradfi": [ { "symbol": "deuidxeur", "name": "DAX Index" },
+    { "symbol": "usa30idxusd", "name": "Dow Jones" },
+    { "symbol": "usatechidxusd", "name": "Nasdaq" },
+    { "symbol": "usa500idxusd", "name": "S&P 500" },
+    { "symbol": "xagusd", "name": "Spot Silver" },
+    { "symbol": "xauusd", "name": "Spot Gold" },
+    { "symbol": "lightcmdusd", "name": "Light Crude Oil" },
+    { "symbol": "eurusd", "name": "EURUSD" },
+    { "symbol": "eurjpy", "name": "EURJPY" },
+    { "symbol": "usdcad", "name": "USDCAD" },
+    { "symbol": "nzdcad", "name": "NZDCAD" }
     ],
-    "tradfi_disabled": [],
+
+    "tradfi_disabled": [{ "symbol": "deuidxeur", "name": "DAX Index" },
+    { "symbol": "usa30idxusd", "name": "Dow Jones" },
+    { "symbol": "usatechidxusd", "name": "Nasdaq" },
+    { "symbol": "usa500idxusd", "name": "S&P 500" },
+    { "symbol": "xagusd", "name": "Spot Silver" },
+    { "symbol": "xauusd", "name": "Spot Gold" },
+    { "symbol": "lightcmdusd", "name": "Light Crude Oil" },
+    { "symbol": "eurusd", "name": "EURUSD" },
+    { "symbol": "eurjpy", "name": "EURJPY" },
+    { "symbol": "usdcad", "name": "USDCAD" },
+    { "symbol": "nzdcad", "name": "NZDCAD" }
+  
+  ],
 
     "crypto_disabled": [ 
       { "symbol": "BTC/USDT", "name": "Bitcoin", "exchange": "binance" },
       { "symbol": "ETH/USDT", "name": "Ethereum", "exchange": "binance" }
     ],
-    "crypto": []
+    "crypto": [    { "symbol": "ETH/USDT", "name": "Ethereum", "exchange": "binance" },
+                    { "symbol": "SOL/USDT", "name": "Solana", "exchange": "binance" }
+  ]
     },
   "tradfi": {
     "timeframe": "m1",
@@ -25,7 +49,7 @@
   "crypto": {
     "timeframe": "1m",
     "defaultExchange": "binance",
-    "batchSize": 1000,
+    "batchSize": 2000,
     "rateLimitDelay": 3.0,
     "maxRetries": 3
   },
