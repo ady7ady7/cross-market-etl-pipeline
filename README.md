@@ -13,3 +13,7 @@ In order to make the pipeline work:
 8. Import data to your database with npm run db:import and wait patiently, as it will take lots of time, but you will see the progress meter and logs depending on the specified interval.
 
 9. Setup your scheduler to frequently populate your database with new data, having an automated data flow every week from now on.
+
+
+ISSUES TROUBLESHOOTING:
+- DB Connection error - especially with Digital Ocean - if you're experiencing a self-signed certificate ISSUE when trying to connect to your database using this repository with npm run db:test or npm run db:import, make sure you remove '?sslmode=require' from your DATABASE_URL ending in .env. Your connection string is conflicting with the ssl configuration set in config/database.js. You should be able to connect just fine after this change! - @4.09.2025
