@@ -4,13 +4,30 @@
  */
 
 const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
+// Read the CA certificate
+let sslConfig = false;
+
+if (process.env.DATABASE_CA_CERT_PATH) {
+  try {
+    const caCert = fs.readFileSync(process.env.DATABASE_CA_CERT_PATH, 'utf8');
+    sslConfig = {
+      rejectUnauthorized: true,
+      ca: caCert,
+    };
+  } catch (error) {
+    console.warn('⚠️  Could not load CA certificate:', error.message);
+    sslConfig = { rejectUnauthorized: false };
+  }
+}
 
 // Create PostgreSQL connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: sslConfig,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,

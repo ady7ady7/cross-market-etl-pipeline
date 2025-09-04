@@ -6,13 +6,7 @@
     }
   },
   "assets": {
-    "tradfi": [ { "symbol": "deuidxeur", "name": "DAX Index" },
-    { "symbol": "usa30idxusd", "name": "Dow Jones" },
-    { "symbol": "usatechidxusd", "name": "Nasdaq" },
-    { "symbol": "usa500idxusd", "name": "S&P 500" },
-    { "symbol": "xagusd", "name": "Spot Silver" },
-    { "symbol": "xauusd", "name": "Spot Gold" },
-    { "symbol": "lightcmdusd", "name": "Light Crude Oil" },
+    "tradfi": [
     { "symbol": "eurusd", "name": "EURUSD" },
     { "symbol": "eurjpy", "name": "EURJPY" },
     { "symbol": "usdcad", "name": "USDCAD" },
