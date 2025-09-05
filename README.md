@@ -1,7 +1,7 @@
 # cross-market-etl-pipeline
 
 
-In order to make the pipeline work:
+In order to make the initial data import:
 
 1. Set up a PostgreSQL database - either locally or online. Personally I'm using Digital Ocean's standard instance, as I've found it to be the most reasonable option for me. 
 2. Create a .env file in your root directory, copy the contents of .env.example there and replace with your actual DATABASE_URL connection file.
@@ -12,8 +12,14 @@ In order to make the pipeline work:
 7. Now, provided that your imports were successful, you should have your OHLCV data in /data/tradfi and data/crypto directories. Now it's the time to import data to your database.
 8. Import data to your database with npm run db:import and wait patiently, as it will take lots of time, but you will see the progress meter and logs depending on the specified interval.
 
-9. Setup your scheduler to frequently populate your database with new data, having an automated data flow every week from now on.
+In order to setup your scheduler:
+1. Setup a basic Background Worker on Render, or use any other alternative service or your choice
+2. Use the render.yaml file from the root folder of this repository as your guideline of how to set it, besides set the language as Node, populate Environment Variables on Render/alternative service with your DATABASE_URL, DATABASE_CA_CERT_PATH, and NODE_ENV from your .env.
+3. Remember to whitelist Render's/alternative service's IP addresses in your database provider's website. As for Render, you can find them in the project's dashboard -> click the Connect button in the top right corner, select Outbound and copy all the addresses from there.
+4. You're good to go, if you've done everything correctly, your service should be working from now on!
+5. You can do the big data imports manually on your own, and then the scheduler will acknowledge all the present symbols and will start to automatically import data from the last available timestamp.
 
 
 ISSUES TROUBLESHOOTING:
+- DB Connection error #1 - Remember to whitelist your Ip address in your database provider's website, if you're using dynamic IP you might have to change it more often.
 - DB Connection error - especially with Digital Ocean - if you're experiencing a self-signed certificate ISSUE when trying to connect to your database using this repository with npm run db:test or npm run db:import, make sure you remove '?sslmode=require' from your DATABASE_URL ending in .env. Your connection string is conflicting with the ssl configuration set in config/database.js. You should be able to connect just fine after this change! - @4.09.2025
