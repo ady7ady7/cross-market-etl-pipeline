@@ -1,5 +1,7 @@
 # cross-market-etl-pipeline
+The goal of this project was to establish an automated data gathering pipeline from various markets for backtesting and research purposes. I decided it would be the most convenient to use a database and a scheduler - this is not the cheapest option, but the goal is to collect the most recent data every 7-10 days, in case of a scenario where good data with higher lookback period will not be available in the future for some reason, so I can keep collecting it for backtesting and analyses. Data from 7-10 days ago for m1 timeframe is easily available in various sources for free, but it might be an issue to gather it regularly, for different reasons. Thanks to the automation, I will never forget to run the script and will still be able to maintain a reliable market dataset without gaps in the long run.
 
+In order to gather tradfi data, I used dukascopy-node.app built by Leonid Pyrlia (Leo4815162342) - https://github.com/Leo4815162342/dukascopy-node. Please star his work if you're using this pipeline - amazing work and great documentation in that project! Thanks to Dukascopy and that person, I was able to create a reliable tradfi data pipeline with good quality OHLCV data from m1 timeframe and relatively long lookback period, completely for free.  Crypto data is imported using CCXT, but I have not checked its quality yet.
 
 In order to make the initial data import:
 
