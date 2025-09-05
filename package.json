@@ -30,12 +30,12 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "dukascopy-node": "^1.43.0",
+    "csv-parser": "^3.2.0",
     "csv-writer": "^1.6.0",
     "dotenv": "^17.2.1",
-    "pg": "^8.16.3",
-    "csv-parser": "^3.2.0",
-    "node-cron": "^4.2.1"
+    "dukascopy-node": "^1.43.0",
+    "node-cron": "^4.2.1",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

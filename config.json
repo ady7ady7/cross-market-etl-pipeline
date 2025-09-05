@@ -7,34 +7,94 @@
   },
   "assets": {
     "tradfi": [
-    { "symbol": "eurusd", "name": "EURUSD" },
-    { "symbol": "eurjpy", "name": "EURJPY" },
-    { "symbol": "usdcad", "name": "USDCAD" },
-    { "symbol": "nzdcad", "name": "NZDCAD" }
+      {
+        "symbol": "eurusd",
+        "name": "EURUSD"
+      },
+      {
+        "symbol": "eurjpy",
+        "name": "EURJPY"
+      },
+      {
+        "symbol": "usdcad",
+        "name": "USDCAD"
+      },
+      {
+        "symbol": "nzdcad",
+        "name": "NZDCAD"
+      }
     ],
-
-    "tradfi_disabled": [{ "symbol": "deuidxeur", "name": "DAX Index" },
-    { "symbol": "usa30idxusd", "name": "Dow Jones" },
-    { "symbol": "usatechidxusd", "name": "Nasdaq" },
-    { "symbol": "usa500idxusd", "name": "S&P 500" },
-    { "symbol": "xagusd", "name": "Spot Silver" },
-    { "symbol": "xauusd", "name": "Spot Gold" },
-    { "symbol": "lightcmdusd", "name": "Light Crude Oil" },
-    { "symbol": "eurusd", "name": "EURUSD" },
-    { "symbol": "eurjpy", "name": "EURJPY" },
-    { "symbol": "usdcad", "name": "USDCAD" },
-    { "symbol": "nzdcad", "name": "NZDCAD" }
-  
-  ],
-
-    "crypto_disabled": [ 
-      { "symbol": "BTC/USDT", "name": "Bitcoin", "exchange": "binance" },
-      { "symbol": "ETH/USDT", "name": "Ethereum", "exchange": "binance" }
+    "tradfi_disabled": [
+      {
+        "symbol": "deuidxeur",
+        "name": "DAX Index"
+      },
+      {
+        "symbol": "usa30idxusd",
+        "name": "Dow Jones"
+      },
+      {
+        "symbol": "usatechidxusd",
+        "name": "Nasdaq"
+      },
+      {
+        "symbol": "usa500idxusd",
+        "name": "S&P 500"
+      },
+      {
+        "symbol": "xagusd",
+        "name": "Spot Silver"
+      },
+      {
+        "symbol": "xauusd",
+        "name": "Spot Gold"
+      },
+      {
+        "symbol": "lightcmdusd",
+        "name": "Light Crude Oil"
+      },
+      {
+        "symbol": "eurusd",
+        "name": "EURUSD"
+      },
+      {
+        "symbol": "eurjpy",
+        "name": "EURJPY"
+      },
+      {
+        "symbol": "usdcad",
+        "name": "USDCAD"
+      },
+      {
+        "symbol": "nzdcad",
+        "name": "NZDCAD"
+      }
     ],
-    "crypto": [    { "symbol": "ETH/USDT", "name": "Ethereum", "exchange": "binance" },
-                    { "symbol": "SOL/USDT", "name": "Solana", "exchange": "binance" }
-  ]
-    },
+    "crypto_disabled": [
+      {
+        "symbol": "BTC/USDT",
+        "name": "Bitcoin",
+        "exchange": "binance"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "name": "Ethereum",
+        "exchange": "binance"
+      }
+    ],
+    "crypto": [
+      {
+        "symbol": "ETH/USDT",
+        "name": "Ethereum",
+        "exchange": "binance"
+      },
+      {
+        "symbol": "SOL/USDT",
+        "name": "Solana",
+        "exchange": "binance"
+      }
+    ]
+  },
   "tradfi": {
     "timeframe": "m1",
     "batchSize": 5,
@@ -44,7 +104,7 @@
     "timeframe": "1m",
     "defaultExchange": "binance",
     "batchSize": 2000,
-    "rateLimitDelay": 3.0,
+    "rateLimitDelay": 3,
     "maxRetries": 3
   },
   "database": {

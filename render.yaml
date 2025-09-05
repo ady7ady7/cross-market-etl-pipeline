@@ -1,0 +1,14 @@
+# render.yaml
+services:
+  - type: worker
+    name: etl-scheduler-worker
+    runtime: node
+    plan: starter
+    buildCommand: "npm install && pip install -r requirements.txt"
+    startCommand: "npm run scheduler:start"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TZ
+        value: UTC
+    autoDeploy: true
