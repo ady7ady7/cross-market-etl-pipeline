@@ -136,67 +136,86 @@ async function main() {
   const importer = new DukascopyImporter();
   
   try {
-    // Use the configured date range from assets.js and fetch the first configured asset
-    if (TRADFI_ASSETS.length === 0) {
-      console.error('❌ No assets configured in TRADFI_ASSETS');
+    // Check for custom config path (for scheduler)
+    const configPath = process.env.CONFIG_PATH;
+    let assetsToProcess;
+    
+    if (configPath && fs.existsSync(configPath)) {
+      console.log(`📄 Using custom config: ${configPath}`);
+      const customConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      assetsToProcess = customConfig.assets.tradfi;
+    } else {
+      console.log('📄 Using default config');
+      assetsToProcess = TRADFI_ASSETS;
+    }
+
+    if (assetsToProcess.length === 0) {
+      console.error('❌ No TradFi assets configured');
       process.exit(1);
     }
 
-    const firstAsset = TRADFI_ASSETS[0];
-    console.log(`🎯 Fetching ${firstAsset.name} data with configured date range...\n`);
+    const firstAsset = assetsToProcess[0];
+    console.log(`🎯 Fetching ${firstAsset.name || firstAsset.symbol} data with configured date range...\n`);
     
     const result = await importer.fetchAllAssets();
     
     console.log('\n📋 Summary:');
-    console.log(`- Asset: ${result.asset.name} (${result.asset.symbol})`);
-    console.log(`- Timeframe: ${result.timeframe}`);
-    console.log(`- Date range: ${result.dateRange.from.toISOString().split('T')[0]} to ${result.dateRange.to.toISOString().split('T')[0]}`);
-    console.log(`- Records fetched: ${result.recordCount}`);
-    console.log(`- CSV file: ${result.filePath}`);
-    
-    if (result.data.length > 0) {
-      console.log('- Sample data (first 3 records):');
+    // SAFE ACCESS - check if result and result.asset exist
+    if (result && result.asset) {
+      console.log(`- Asset: ${result.asset.name || result.asset.symbol || 'Unknown'} (${result.asset.symbol || 'Unknown'})`);
+      console.log(`- Timeframe: ${result.timeframe || 'Unknown'}`);
       
-      // Safe data handling for display
-      const sampleData = result.data.slice(0, 3).map(record => {
-        if (Array.isArray(record)) {
-          // Array format: [timestamp, open, high, low, close, volume]
-          const [timestamp, open, high, low, close, volume] = record;
-          return {
-            timestamp: new Date(timestamp).toISOString(),
-            open: open,
-            high: high,
-            low: low,
-            close: close,
-            volume: volume || 0
-          };
-        } else if (typeof record === 'object' && record !== null) {
-          // Object format
-          let displayTimestamp;
-          try {
-            if (typeof record.timestamp === 'number') {
-              displayTimestamp = new Date(record.timestamp).toISOString();
-            } else {
-              displayTimestamp = String(record.timestamp);
+      if (result.dateRange) {
+        console.log(`- Date range: ${result.dateRange.from?.toISOString().split('T')[0] || 'Unknown'} to ${result.dateRange.to?.toISOString().split('T')[0] || 'Unknown'}`);
+      }
+      
+      console.log(`- Records fetched: ${result.recordCount || 0}`);
+      console.log(`- CSV file: ${result.filePath || 'None'}`);
+      
+      if (result.data && result.data.length > 0) {
+        console.log('- Sample data (first 3 records):');
+        
+        // Safe data handling for display
+        const sampleData = result.data.slice(0, 3).map(record => {
+          if (Array.isArray(record)) {
+            const [timestamp, open, high, low, close, volume] = record;
+            return {
+              timestamp: new Date(timestamp).toISOString(),
+              open: open,
+              high: high,
+              low: low,
+              close: close,
+              volume: volume || 0
+            };
+          } else if (typeof record === 'object' && record !== null) {
+            let displayTimestamp;
+            try {
+              if (typeof record.timestamp === 'number') {
+                displayTimestamp = new Date(record.timestamp).toISOString();
+              } else {
+                displayTimestamp = String(record.timestamp);
+              }
+            } catch (error) {
+              displayTimestamp = 'Invalid timestamp';
             }
-          } catch (error) {
-            displayTimestamp = 'Invalid timestamp';
+            
+            return {
+              timestamp: displayTimestamp,
+              open: record.open,
+              high: record.high,
+              low: record.low,
+              close: record.close,
+              volume: record.volume || 0
+            };
+          } else {
+            return { error: 'Unknown record format', raw: record };
           }
-          
-          return {
-            timestamp: displayTimestamp,
-            open: record.open,
-            high: record.high,
-            low: record.low,
-            close: record.close,
-            volume: record.volume || 0
-          };
-        } else {
-          return { error: 'Unknown record format', raw: record };
-        }
-      });
-      
-      console.log(sampleData);
+        });
+        
+        console.log(sampleData);
+      }
+    } else {
+      console.log('❌ No results returned from ETL process');
     }
 
   } catch (error) {

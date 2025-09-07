@@ -1,6 +1,6 @@
 /**
  * Simple Weekly Scheduler
- * Uses database metadata to determine date ranges, keeps your existing code intact
+ * This file is kept for manual/testing use
  * src/services/weekly_scheduler.js
  */
 

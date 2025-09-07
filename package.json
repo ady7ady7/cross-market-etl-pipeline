@@ -15,9 +15,9 @@
     "metadata:generate": "node -e \"const mgr = require('./src/database/symbol_metadata_manager'); new mgr().generateAllMetadata()\"",
     "schedule:check": "node src/services/scheduled_updater.js --check",
     "schedule:run": "node src/services/scheduled_updater.js --run",
-    "scheduler:start": "node src/services/weekly_scheduler.js",
-    "scheduler:test": "node src/services/weekly_scheduler.js --test",
-    "scheduler:once": "node src/services/weekly_scheduler.js --run-once",
+    "scheduler:start": "node src/services/metadata_scheduler.js",
+    "scheduler:test": "node src/services/metadata_scheduler.js --test-metadata",
+    "scheduler:once": "node src/services/metadata_scheduler.js --run-once",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
