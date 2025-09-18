@@ -1,12 +1,40 @@
 {
   "dateRanges": {
     "default": {
-      "from": "2024-01-10",
-      "to": "2025-08-29"
+      "from": "2025-08-25",
+      "to": "2025-09-17"
     }
   },
   "assets": {
     "tradfi": [
+      {
+        "symbol": "deuidxeur",
+        "name": "DAX Index"
+      },
+      {
+        "symbol": "usa30idxusd",
+        "name": "Dow Jones"
+      },
+      {
+        "symbol": "usatechidxusd",
+        "name": "Nasdaq"
+      },
+      {
+        "symbol": "usa500idxusd",
+        "name": "S&P 500"
+      },
+      {
+        "symbol": "xagusd",
+        "name": "Spot Silver"
+      },
+      {
+        "symbol": "xauusd",
+        "name": "Spot Gold"
+      },
+      {
+        "symbol": "lightcmdusd",
+        "name": "Light Crude Oil"
+      },
       {
         "symbol": "eurusd",
         "name": "EURUSD"
@@ -86,11 +114,6 @@
       {
         "symbol": "ETH/USDT",
         "name": "Ethereum",
-        "exchange": "binance"
-      },
-      {
-        "symbol": "SOL/USDT",
-        "name": "Solana",
         "exchange": "binance"
       }
     ]

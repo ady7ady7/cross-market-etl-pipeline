@@ -1,23 +1,23 @@
 {
-  "symbol": "deuidxeur",
-  "table_name": "deuidxeur_tradfi_ohlcv",
+  "symbol": "eurjpy",
+  "table_name": "eurjpy_tradfi_ohlcv",
   "asset_type": "tradfi",
   "exchange": null,
-  "total_records": 546883,
+  "total_records": 609871,
   "first_available_timestamp": "2024-01-09T23:00:00.000Z",
   "last_available_timestamp": "2025-08-28T21:59:00.000Z",
   "coverage_days": 597,
   "volume_available": true,
   "data_format": "OHLCV",
   "day_of_week_distribution": {
-    "monday": 109552,
-    "tuesday": 110063,
-    "wednesday": 108863,
-    "thursday": 111328,
-    "friday": 99468,
+    "monday": 121922,
+    "tuesday": 121701,
+    "wednesday": 121078,
+    "thursday": 123335,
+    "friday": 108697,
     "saturday": 0,
-    "sunday": 7609
+    "sunday": 13138
   },
-  "last_metadata_update": "2025-09-10T19:26:41.620Z",
+  "last_metadata_update": "2025-09-10T19:26:43.656Z",
   "can_update_from": "2025-08-28T21:59:00.000Z"
 }

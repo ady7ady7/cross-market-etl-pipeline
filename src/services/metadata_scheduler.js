@@ -322,17 +322,17 @@ class MetadataScheduler {
    */
   async runCommand(command, args, env = {}) {
     return new Promise((resolve) => {
-      const process = spawn(command, args, {
+      const childProcess = spawn(command, args, {  // ← Renamed to avoid conflict
         stdio: 'inherit',
         cwd: path.join(__dirname, '../..'),
-        env: { ...process.env, ...env }
+        env: { ...process.env, ...env }  // ← Now 'process' correctly refers to global
       });
 
-      process.on('close', (code) => {
+      childProcess.on('close', (code) => {
         resolve({ success: code === 0, code });
       });
 
-      process.on('error', (error) => {
+      childProcess.on('error', (error) => {
         console.error(`❌ Command error (${command} ${args.join(' ')}):`, error);
         resolve({ success: false, error: error.message });
       });
