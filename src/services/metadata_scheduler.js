@@ -253,10 +253,14 @@ class MetadataScheduler {
     };
 
     const tempConfigPath = path.join(__dirname, '../../temp_tradfi_config.json');
-    fs.writeFileSync(tempConfigPath, JSON.stringify(tradfiConfig, null, 2));
-
+    
     try {
+      fs.writeFileSync(tempConfigPath, JSON.stringify(tradfiConfig, null, 2));
+      console.log(`📝 Created temp config: ${tempConfigPath}`);
+      console.log(`📊 Config contains ${tradfiSymbols.length} symbols`);
+      
       console.log(`📊 Running TradFi import for ${tradfiSymbols.length} symbols...`);
+      console.log(`📅 Date range: ${dateRange.from} to ${dateRange.to}`);
       
       const result = await this.runCommand('node', [
         'src/etl/dukascopy_importer.js'
@@ -264,16 +268,29 @@ class MetadataScheduler {
         CONFIG_PATH: tempConfigPath
       });
 
+      if (result.success) {
+        console.log('✅ TradFi ETL completed successfully');
+      } else {
+        console.error('❌ TradFi ETL failed with code:', result.code);
+      }
+
       return result.success;
 
+    } catch (error) {
+      console.error('❌ TradFi ETL setup failed:', error);
+      return false;
     } finally {
       // Cleanup temp config
-      if (fs.existsSync(tempConfigPath)) {
-        fs.unlinkSync(tempConfigPath);
+      try {
+        if (fs.existsSync(tempConfigPath)) {
+          fs.unlinkSync(tempConfigPath);
+          console.log('🧹 Cleaned up temp config file');
+        }
+      } catch (cleanupError) {
+        console.warn('⚠️ Failed to cleanup temp config:', cleanupError.message);
       }
     }
   }
-
   /**
    * Run Crypto ETL with specific symbols and date range
    */
@@ -288,7 +305,14 @@ class MetadataScheduler {
 
     console.log(`🪙 Running Crypto import for ${cryptoSymbols.length} symbols...`);
     
-    const result = await this.runCommand('python3', [
+    // Use the correct Python executable for Windows
+    const pythonCmd = process.platform === 'win32' 
+      ? 'C:\\Users\\HARDPC\\.pyenv\\pyenv-win\\versions\\3.12.2\\python.exe'
+      : 'python3';
+    
+    console.log(`🐍 Using Python: ${pythonCmd}`);
+    
+    const result = await this.runCommand(pythonCmd, [
       'src/etl/crypto_importer.py'
     ], env);
 

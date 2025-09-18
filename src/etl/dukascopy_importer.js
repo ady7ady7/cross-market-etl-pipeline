@@ -3,6 +3,7 @@
  * Fetches historical rate data from Dukascopy with proper batching and logging
  */
 
+const fs = require('fs');
 const { getHistoricalRates } = require('dukascopy-node');
 const { TRADFI_ASSETS, TRADFI_CONFIG, DATA_CONFIG } = require('../config/assets');
 const Logger = require('../utils/logger');
