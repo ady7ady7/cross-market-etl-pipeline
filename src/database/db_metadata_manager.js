@@ -38,9 +38,9 @@ class DatabaseMetadataManager {
     try {
       const query = `
         INSERT INTO symbol_metadata (
-          symbol, table_name, asset_type, exchange, update_frequency_hours
+          symbol, table_name, asset_type, exchange
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (table_name) 
         DO UPDATE SET
           symbol = EXCLUDED.symbol,
@@ -50,8 +50,7 @@ class DatabaseMetadataManager {
         RETURNING id
       `;
       
-      const updateFrequency = assetType === 'tradfi' ? 24 : 6; // TradFi daily, Crypto 4x daily
-      const result = await client.query(query, [symbol, tableName, assetType, exchange, updateFrequency]);
+      const result = await client.query(query, [symbol, tableName, assetType, exchange]);
       
       console.log(`✅ Metadata record created/updated for ${symbol}`);
       return result.rows[0].id;
@@ -63,7 +62,6 @@ class DatabaseMetadataManager {
       client.release();
     }
   }
-
   /**
    * Refresh metadata statistics from actual table data
    */
@@ -118,6 +116,9 @@ class DatabaseMetadataManager {
   /**
    * Get all metadata with summary statistics
    */
+/**
+ * Get all metadata with summary statistics
+ */
   async getAllMetadata() {
     try {
       const query = `
@@ -135,7 +136,7 @@ class DatabaseMetadataManager {
           day_of_week_distribution,
           last_metadata_update,
           can_update_from,
-          next_scheduled_update
+          last_data_update
         FROM symbol_metadata
         ORDER BY asset_type, symbol
       `;

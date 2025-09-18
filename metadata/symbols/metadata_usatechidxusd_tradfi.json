@@ -3,21 +3,21 @@
   "table_name": "usatechidxusd_tradfi_ohlcv",
   "asset_type": "tradfi",
   "exchange": null,
-  "total_records": 558813,
+  "total_records": 575972,
   "first_available_timestamp": "2024-01-09T23:00:00.000Z",
-  "last_available_timestamp": "2025-08-28T21:59:00.000Z",
-  "coverage_days": 597,
+  "last_available_timestamp": "2025-09-16T21:59:00.000Z",
+  "coverage_days": 616,
   "volume_available": true,
   "data_format": "OHLCV",
   "day_of_week_distribution": {
-    "monday": 111577,
-    "tuesday": 112803,
-    "wednesday": 111467,
-    "thursday": 112979,
-    "friday": 101772,
+    "monday": 115386,
+    "tuesday": 116808,
+    "wednesday": 114137,
+    "thursday": 115649,
+    "friday": 105417,
     "saturday": 0,
-    "sunday": 8215
+    "sunday": 8575
   },
-  "last_metadata_update": "2025-09-18T17:34:34.057Z",
-  "can_update_from": "2025-08-28T21:59:00.000Z"
+  "last_metadata_update": "2025-09-18T20:14:38.547Z",
+  "can_update_from": "2025-09-16T21:59:00.000Z"
 }

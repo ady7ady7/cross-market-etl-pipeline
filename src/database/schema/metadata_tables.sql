@@ -27,10 +27,8 @@ CREATE TABLE IF NOT EXISTS symbol_metadata (
     last_metadata_update TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     can_update_from TIMESTAMPTZ NULL,
     
-    -- Scheduling info
+    -- Data update tracking
     last_data_update TIMESTAMPTZ NULL,
-    update_frequency_hours INTEGER NOT NULL DEFAULT 24,
-    next_scheduled_update TIMESTAMPTZ NULL,
     
     CONSTRAINT unique_symbol_exchange UNIQUE(symbol, exchange, asset_type)
 );
@@ -38,24 +36,9 @@ CREATE TABLE IF NOT EXISTS symbol_metadata (
 -- Index for efficient queries
 CREATE INDEX IF NOT EXISTS idx_symbol_metadata_symbol ON symbol_metadata(symbol);
 CREATE INDEX IF NOT EXISTS idx_symbol_metadata_asset_type ON symbol_metadata(asset_type);
-CREATE INDEX IF NOT EXISTS idx_symbol_metadata_next_update ON symbol_metadata(next_scheduled_update);
 CREATE INDEX IF NOT EXISTS idx_symbol_metadata_table_name ON symbol_metadata(table_name);
 
--- Function to calculate next update time
-CREATE OR REPLACE FUNCTION calculate_next_update_time(
-    last_update TIMESTAMPTZ,
-    frequency_hours INTEGER DEFAULT 24
-) RETURNS TIMESTAMPTZ AS $$
-BEGIN
-    IF last_update IS NULL THEN
-        RETURN NOW() + INTERVAL '1 hour';
-    END IF;
-    
-    RETURN last_update + (frequency_hours || ' hours')::INTERVAL;
-END;
-$$ LANGUAGE plpgsql;
-
--- Function to get symbols that need updating
+-- Function to get symbols that need updating (simplified)
 CREATE OR REPLACE FUNCTION get_symbols_needing_update()
 RETURNS TABLE(
     symbol VARCHAR(50),
@@ -75,13 +58,11 @@ BEGIN
         sm.last_available_timestamp,
         sm.can_update_from
     FROM symbol_metadata sm
-    WHERE sm.next_scheduled_update IS NULL 
-       OR sm.next_scheduled_update <= NOW()
     ORDER BY sm.last_data_update ASC NULLS FIRST;
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to update metadata after data import
+-- Function to update metadata after data import (simplified)
 CREATE OR REPLACE FUNCTION refresh_symbol_metadata(target_table_name TEXT)
 RETURNS VOID AS $$
 DECLARE
@@ -127,8 +108,7 @@ BEGIN
         day_of_week_distribution = dow_distribution,
         last_metadata_update = NOW(),
         can_update_from = last_ts,
-        last_data_update = NOW(),
-        next_scheduled_update = calculate_next_update_time(NOW(), update_frequency_hours)
+        last_data_update = NOW()
     WHERE table_name = target_table_name;
     
     -- If no row was updated, insert a new record

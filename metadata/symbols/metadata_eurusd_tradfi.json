@@ -3,21 +3,21 @@
   "table_name": "eurusd_tradfi_ohlcv",
   "asset_type": "tradfi",
   "exchange": null,
-  "total_records": 609826,
+  "total_records": 628461,
   "first_available_timestamp": "2024-01-09T23:00:00.000Z",
-  "last_available_timestamp": "2025-08-28T21:59:00.000Z",
-  "coverage_days": 597,
+  "last_available_timestamp": "2025-09-16T21:59:00.000Z",
+  "coverage_days": 616,
   "volume_available": true,
   "data_format": "OHLCV",
   "day_of_week_distribution": {
-    "monday": 121772,
-    "tuesday": 121713,
-    "wednesday": 120979,
-    "thursday": 123305,
-    "friday": 108636,
+    "monday": 126067,
+    "tuesday": 126017,
+    "wednesday": 123847,
+    "thursday": 126176,
+    "friday": 112413,
     "saturday": 0,
-    "sunday": 13421
+    "sunday": 13941
   },
-  "last_metadata_update": "2025-09-18T17:34:28.801Z",
-  "can_update_from": "2025-08-28T21:59:00.000Z"
+  "last_metadata_update": "2025-09-18T20:14:35.095Z",
+  "can_update_from": "2025-09-16T21:59:00.000Z"
 }
