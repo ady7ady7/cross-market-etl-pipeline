@@ -18,6 +18,7 @@
     "scheduler:start": "node src/services/metadata_scheduler.js",
     "scheduler:test": "node src/services/metadata_scheduler.js --test-metadata",
     "scheduler:once": "node src/services/metadata_scheduler.js --run-once",
+    "migrate:timeframes": "node scripts/migrate_to_timeframes.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
