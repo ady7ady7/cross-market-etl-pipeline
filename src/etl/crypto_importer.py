@@ -65,7 +65,21 @@ class CryptoImporter:
             raise
 
     def _get_timeframe_duration_ms(self, timeframe):
-        """Convert timeframe to milliseconds"""
+        """Convert timeframe to milliseconds - supports both our format (m1, m5, h1) and CCXT format (1m, 5m, 1h)"""
+        # Convert our format to CCXT format if needed
+        if timeframe in ['m1', 'm5', 'm15', 'h1', 'h4', 'd1']:
+            timeframe_conversion = {
+                'm1': '1m',
+                'm5': '5m',
+                'm15': '15m',
+                'h1': '1h',
+                'h4': '4h',
+                'd1': '1d'
+            }
+            ccxt_timeframe = timeframe_conversion.get(timeframe, '1m')
+        else:
+            ccxt_timeframe = timeframe
+
         timeframe_map = {
             '1m': 60 * 1000,
             '5m': 5 * 60 * 1000,
@@ -74,7 +88,7 @@ class CryptoImporter:
             '4h': 4 * 60 * 60 * 1000,
             '1d': 24 * 60 * 60 * 1000
         }
-        return timeframe_map.get(timeframe, 60 * 1000)  # Default to 1m
+        return timeframe_map.get(ccxt_timeframe, 60 * 1000)  # Default to 1m
 
     def fetch_historical_data(self, asset, date_range=None, timeframe=None):
         """Fetch historical data for a single crypto asset"""
@@ -251,33 +265,36 @@ class CryptoImporter:
 def main():
     """Main execution function for direct script running"""
     importer = CryptoImporter()
-    
+
     try:
-        # Use the configured date range and fetch the first configured asset
+        # Use the configured date range and fetch all configured assets for all timeframes
         if not CRYPTO_ASSETS:
             print('❌ No assets configured in CRYPTO_ASSETS')
             sys.exit(1)
 
         first_asset = CRYPTO_ASSETS[0]
         print(f"🎯 Fetching {first_asset['name']} data with configured date range...\n")
-        
-        result = importer.fetch_first_asset()
-        
+
+        results = importer.fetch_all_assets()
+
         print('\n📋 Summary:')
-        print(f"- Asset: {result['asset']['name']} ({result['asset']['symbol']})")
-        print(f"- Exchange: {result['asset']['exchange']}")
-        print(f"- Timeframe: {result['timeframe']}")
-        print(f"- Date range: {result['date_range']['from'].strftime('%Y-%m-%d')} to {result['date_range']['to'].strftime('%Y-%m-%d')}")
-        print(f"- Records fetched: {result['record_count']}")
-        print(f"- CSV file: {result['file_path']}")
-        
-        if result['data']:
-            print('- Sample data (first 3 records):')
-            for i, record in enumerate(result['data'][:3]):
-                if isinstance(record, list) and len(record) >= 6:
-                    timestamp_ms, open_price, high_price, low_price, close_price, volume = record[:6]
-                    dt = datetime.fromtimestamp(timestamp_ms / 1000.0)
-                    print(f"  {i+1}. {dt.isoformat()} | O:{open_price} H:{high_price} L:{low_price} C:{close_price} V:{volume}")
+
+        # Results are now nested by timeframe, then by symbol
+        total_files = 0
+        total_records = 0
+
+        for timeframe, timeframe_results in results.items():
+            print(f"\n🕒 Timeframe: {timeframe.upper()}")
+            for symbol, result in timeframe_results.items():
+                if 'error' not in result:
+                    print(f"  ✅ {result['asset']['name']} ({symbol}): {result['record_count']} records")
+                    print(f"     📁 File: {result['file_path']}")
+                    total_files += 1
+                    total_records += result['record_count']
+                else:
+                    print(f"  ❌ {symbol}: {result['error']}")
+
+        print(f"\n📊 Total: {total_files} files, {total_records:,} records across {len(results)} timeframes")
 
     except Exception as error:
         print(f'❌ Script execution failed: {error}')
