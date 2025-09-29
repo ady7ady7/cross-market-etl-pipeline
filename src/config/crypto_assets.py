@@ -17,15 +17,17 @@ with open(config_path, 'r') as f:
 # Crypto Assets List - from master config
 CRYPTO_ASSETS = master_config['assets']['crypto']
 
-# Global Crypto Configuration - from master config
+# Global Crypto Configuration - updated for multi-timeframe support
 CRYPTO_CONFIG = {
-    'timeframe': master_config['crypto']['timeframe'],
+    'timeframes': master_config['crypto']['timeframes'],
     'default_exchange': master_config['crypto']['defaultExchange'],
-    'available_timeframes': ['1m', '5m', '1h', '1d'],
-    'batch_size': master_config['crypto']['batchSize'],
-    'rate_limit_delay': master_config['crypto']['rateLimitDelay'],
+    'available_timeframes': master_config.get('timeframes', ['m1', 'm5', 'h1']),
     'max_retries': master_config['crypto']['maxRetries'],
-    'timeout': 30000
+    'timeout': 30000,
+    # Legacy support - use m1 settings as default
+    'timeframe': 'm1',
+    'batch_size': master_config['crypto']['timeframes'].get('m1', {}).get('batchSize', 2000),
+    'rate_limit_delay': master_config['crypto']['timeframes'].get('m1', {}).get('rateLimitDelay', 3)
 }
 
 # Data configuration for Python - from master config
@@ -103,6 +105,30 @@ def get_available_exchanges():
     Get list of configured exchanges
     """
     return list(EXCHANGE_CONFIGS.keys())
+
+def get_active_timeframes():
+    """
+    Get active timeframes from config or environment variable
+    """
+    import os
+
+    # Check for environment variable override first
+    if 'TIMEFRAMES' in os.environ:
+        return [tf.strip() for tf in os.environ['TIMEFRAMES'].split(',')]
+
+    # Use config.json timeframes array
+    return master_config.get('timeframes', ['m1'])
+
+def get_timeframe_config(timeframe):
+    """
+    Get configuration for a specific timeframe
+    """
+    timeframe_configs = master_config['crypto']['timeframes']
+    return timeframe_configs.get(timeframe, {
+        'ccxtTimeframe': '1m',
+        'batchSize': 2000,
+        'rateLimitDelay': 3
+    })
 
 # For when this file is imported into Node.js scripts (if needed)
 if __name__ == "__main__":

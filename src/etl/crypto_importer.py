@@ -14,8 +14,9 @@ sys.path.insert(0, project_root)
 
 import ccxt
 from src.config.crypto_assets import (
-    CRYPTO_ASSETS, CRYPTO_CONFIG, DATA_CONFIG, 
-    EXCHANGE_CONFIGS, get_date_range_as_datetime
+    CRYPTO_ASSETS, CRYPTO_CONFIG, DATA_CONFIG,
+    EXCHANGE_CONFIGS, get_date_range_as_datetime,
+    get_active_timeframes, get_timeframe_config
 )
 from src.utils.crypto_logger import CryptoLogger
 from src.utils.crypto_csv_writer import CryptoCsvWriter
@@ -30,6 +31,10 @@ class CryptoImporter:
         )
         self.csv_writer = CryptoCsvWriter(DATA_CONFIG['data_paths']['crypto'])
         self.exchanges = {}
+
+        # Get active timeframes from config and environment
+        self.active_timeframes = get_active_timeframes()
+        print(f"🎯 Active timeframes: {', '.join(self.active_timeframes)}")
 
     def _init_exchange(self, exchange_name):
         """Initialize exchange with proper configuration"""
@@ -74,15 +79,19 @@ class CryptoImporter:
     def fetch_historical_data(self, asset, date_range=None, timeframe=None):
         """Fetch historical data for a single crypto asset"""
         dates = date_range or get_date_range_as_datetime()
-        tf = timeframe or CRYPTO_CONFIG['timeframe']
+        tf = timeframe or 'm1'  # Default to m1 if not specified
         exchange_name = asset.get('exchange', CRYPTO_CONFIG['default_exchange'])
-        
+
+        # Get timeframe-specific config
+        timeframe_config = get_timeframe_config(tf)
+
         self.logger.start()
         self.logger.info(f"Fetching {asset['name']} ({asset['symbol']}) data")
         self.logger.info(f"Exchange: {exchange_name}")
         self.logger.info(f"Timeframe: {tf}")
         self.logger.info(f"Date range: {dates['from'].isoformat()} to {dates['to'].isoformat()}")
-        self.logger.info(f"Rate limit delay: {CRYPTO_CONFIG['rate_limit_delay']}s")
+        self.logger.info(f"Rate limit delay: {timeframe_config['rateLimitDelay']}s")
+        self.logger.info(f"Batch size: {timeframe_config['batchSize']}")
 
         try:
             # Initialize exchange
@@ -110,13 +119,13 @@ class CryptoImporter:
                     batch_count += 1
                     
                     # Fetch OHLCV data
-                    self.logger.batch(batch_count, 0, CRYPTO_CONFIG['batch_size'])  # 0 = unknown total
-                    
+                    self.logger.batch(batch_count, 0, timeframe_config['batchSize'])  # 0 = unknown total
+
                     candles = exchange.fetch_ohlcv(
                         symbol=asset['symbol'],
-                        timeframe=tf,
+                        timeframe=timeframe_config['ccxtTimeframe'],
                         since=current_time,
-                        limit=CRYPTO_CONFIG['batch_size']
+                        limit=timeframe_config['batchSize']
                     )
                     
                     if not candles:
@@ -140,14 +149,14 @@ class CryptoImporter:
                         break
                     
                     # Rate limiting
-                    self.logger.pause(CRYPTO_CONFIG['rate_limit_delay'])
-                    time.sleep(CRYPTO_CONFIG['rate_limit_delay'])
-                        
+                    self.logger.pause(timeframe_config['rateLimitDelay'])
+                    time.sleep(timeframe_config['rateLimitDelay'])
+
                 except ccxt.BaseError as e:
                     self.logger.error(f"CCXT error in batch {batch_count}: {str(e)}")
                     if batch_count >= CRYPTO_CONFIG['max_retries']:
                         raise
-                    time.sleep(CRYPTO_CONFIG['rate_limit_delay'] * 2)  # Longer wait on error
+                    time.sleep(timeframe_config['rateLimitDelay'] * 2)  # Longer wait on error
                     continue
 
             # Remove duplicates and sort by timestamp
@@ -183,27 +192,39 @@ class CryptoImporter:
             raise
 
     def fetch_all_assets(self, date_range=None, timeframe=None):
-        """Fetch data for all configured crypto assets"""
+        """Fetch data for all configured crypto assets across multiple timeframes"""
         results = {}
-        
-        for i, asset in enumerate(CRYPTO_ASSETS):
-            self.logger.info(f"\n{'=' * 60}")
-            self.logger.info(f"Processing asset {i + 1}/{len(CRYPTO_ASSETS)}: {asset['name'].upper()}")
-            self.logger.info(f"{'=' * 60}")
-            
-            try:
-                result = self.fetch_historical_data(asset, date_range, timeframe)
-                results[asset['symbol']] = result
-                
-                # Small delay between different assets to be respectful
-                if i < len(CRYPTO_ASSETS) - 1:
-                    self.logger.info('Waiting 3 seconds before next asset...')
-                    time.sleep(3)
-                    
-            except Exception as error:
-                self.logger.error(f"Failed to process asset {asset['symbol']}", error)
-                results[asset['symbol']] = {'error': str(error), 'asset': asset}
-        
+        timeframes_to_process = [timeframe] if timeframe else self.active_timeframes
+
+        self.logger.info(f"📊 Processing {len(timeframes_to_process)} timeframe(s): {', '.join(timeframes_to_process)}")
+
+        for tf in timeframes_to_process:
+            self.logger.info(f"\n🕒 Starting timeframe: {tf.upper()}")
+            results[tf] = {}
+
+            for i, asset in enumerate(CRYPTO_ASSETS):
+                self.logger.info(f"\n{'=' * 60}")
+                self.logger.info(f"Processing asset {i + 1}/{len(CRYPTO_ASSETS)}: {asset['name'].upper()} ({tf.upper()})")
+                self.logger.info(f"{'=' * 60}")
+
+                try:
+                    result = self.fetch_historical_data(asset, date_range, tf)
+                    results[tf][asset['symbol']] = result
+
+                    # Small delay between different assets to be respectful
+                    if i < len(CRYPTO_ASSETS) - 1:
+                        self.logger.info('Waiting 3 seconds before next asset...')
+                        time.sleep(3)
+
+                except Exception as error:
+                    self.logger.error(f"Failed to process asset {asset['symbol']} ({tf})", error)
+                    results[tf][asset['symbol']] = {'error': str(error), 'asset': asset, 'timeframe': tf}
+
+            # Longer delay between timeframes
+            if timeframes_to_process.index(tf) < len(timeframes_to_process) - 1:
+                self.logger.info(f"\n⏸️  Completed {tf.upper()}, waiting 10 seconds before next timeframe...")
+                time.sleep(10)
+
         return results
 
     def fetch_asset_by_symbol(self, symbol, date_range=None, timeframe=None):
