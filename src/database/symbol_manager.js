@@ -44,40 +44,40 @@ class SymbolDatabaseManager {
   }
 
   /**
-   * Get table name for a symbol
+   * Get table name for a symbol with timeframe
    */
-  getTableName(symbol, assetType, exchange = null) {
+  getTableName(symbol, assetType, timeframe = 'm1', exchange = null) {
     if (assetType === 'tradfi') {
-      return `${symbol.toLowerCase()}_tradfi_ohlcv`;
+      return `${symbol.toLowerCase()}_${timeframe.toLowerCase()}_tradfi_ohlcv`;
     } else if (assetType === 'crypto') {
       const cleanSymbol = symbol.replace('/', '').toLowerCase();
-      return `${cleanSymbol}_${exchange.toLowerCase()}_crypto_ohlcv`;
+      return `${cleanSymbol}_${timeframe.toLowerCase()}_${exchange.toLowerCase()}_crypto_ohlcv`;
     } else {
       throw new Error(`Invalid asset type: ${assetType}`);
     }
   }
 
   /**
-   * Create table for a specific symbol
+   * Create table for a specific symbol and timeframe
    */
-  async createSymbolTable(symbol, assetType, exchange = null) {
+  async createSymbolTable(symbol, assetType, timeframe = 'm1', exchange = null) {
     const client = await this.pool.connect();
-    
+
     try {
       if (assetType === 'tradfi') {
-        await client.query('SELECT create_tradfi_ohlcv_table($1)', [symbol]);
+        await client.query('SELECT create_tradfi_ohlcv_table($1, $2)', [symbol, timeframe]);
       } else if (assetType === 'crypto') {
-        await client.query('SELECT create_crypto_ohlcv_table($1, $2)', [symbol, exchange]);
+        await client.query('SELECT create_crypto_ohlcv_table($1, $2, $3)', [symbol, exchange, timeframe]);
       }
-      
-      const tableName = this.getTableName(symbol, assetType, exchange);
+
+      const tableName = this.getTableName(symbol, assetType, timeframe, exchange);
       console.log(`✅ Created table: ${tableName}`);
-      
+
       // Create metadata record for this table
-      await this.dbMetadataManager.upsertSymbolMetadata(symbol, tableName, assetType, exchange);
-      
+      await this.dbMetadataManager.upsertSymbolMetadata(symbol, tableName, assetType, exchange, timeframe);
+
     } catch (error) {
-      console.error(`❌ Failed to create table for ${symbol}:`, error);
+      console.error(`❌ Failed to create table for ${symbol} (${timeframe}):`, error);
       throw error;
     } finally {
       client.release();
@@ -85,11 +85,11 @@ class SymbolDatabaseManager {
   }
 
   /**
-   * Check if table exists for symbol
+   * Check if table exists for symbol and timeframe
    */
-  async tableExists(symbol, assetType, exchange = null) {
-    const tableName = this.getTableName(symbol, assetType, exchange);
-    
+  async tableExists(symbol, assetType, timeframe = 'm1', exchange = null) {
+    const tableName = this.getTableName(symbol, assetType, timeframe, exchange);
+
     try {
       const result = await this.pool.query('SELECT table_exists($1)', [tableName]);
       return result.rows[0].table_exists;
@@ -100,33 +100,46 @@ class SymbolDatabaseManager {
   }
 
   /**
-   * Import all CSV files with symbol-specific tables
+   * Import all CSV files with symbol-specific tables for all timeframes
    */
   async importAllCSVFiles() {
-    console.log('🔄 Importing CSV files to symbol-specific tables...\n');
-    
+    console.log('🔄 Importing CSV files to symbol-specific tables for all timeframes...\n');
+
     try {
-      // Import TradFi CSV files
-      const tradfiResults = await this.importTradFiCSVs();
-      
-      // Import Crypto CSV files  
-      const cryptoResults = await this.importCryptoCSVs();
-      
+      const config = require('../../config.json');
+      const timeframes = config.timeframes || ['m1'];
+
+      let totalResults = { inserted: 0, updated: 0, files: 0 };
+
+      // Import for each timeframe
+      for (const timeframe of timeframes) {
+        console.log(`\n📊 Processing timeframe: ${timeframe.toUpperCase()}`);
+
+        // Import TradFi CSV files for this timeframe
+        const tradfiResults = await this.importTradFiCSVs(timeframe);
+
+        // Import Crypto CSV files for this timeframe
+        const cryptoResults = await this.importCryptoCSVs(timeframe);
+
+        totalResults.inserted += tradfiResults.inserted + cryptoResults.inserted;
+        totalResults.updated += tradfiResults.updated + cryptoResults.updated;
+        totalResults.files += tradfiResults.files + cryptoResults.files;
+
+        console.log(`✅ ${timeframe.toUpperCase()}: ${(tradfiResults.inserted + cryptoResults.inserted).toLocaleString()} inserted, ${(tradfiResults.updated + cryptoResults.updated).toLocaleString()} updated`);
+      }
+
       // Generate metadata after import
       console.log('\n📄 Generating metadata files...');
       await this.metadataManager.generateAllMetadata();
-      
-      const totalInserted = tradfiResults.inserted + cryptoResults.inserted;
-      const totalUpdated = tradfiResults.updated + cryptoResults.updated;
-      
-      console.log('\n📊 Import Summary:');
-      console.log(`✅ Total inserted: ${totalInserted.toLocaleString()}`);
-      console.log(`🔄 Total updated: ${totalUpdated.toLocaleString()}`);
-      console.log(`📁 TradFi files: ${tradfiResults.files}`);
-      console.log(`📁 Crypto files: ${cryptoResults.files}`);
-      
-      return { inserted: totalInserted, updated: totalUpdated };
-      
+
+      console.log('\n📊 Total Import Summary (All Timeframes):');
+      console.log(`✅ Total inserted: ${totalResults.inserted.toLocaleString()}`);
+      console.log(`🔄 Total updated: ${totalResults.updated.toLocaleString()}`);
+      console.log(`📁 Total files processed: ${totalResults.files}`);
+      console.log(`⏱️  Timeframes processed: ${timeframes.join(', ')}`);
+
+      return totalResults;
+
     } catch (error) {
       console.error('❌ Failed to import CSV files:', error);
       throw error;
@@ -134,39 +147,51 @@ class SymbolDatabaseManager {
   }
 
   /**
-   * Import TradFi CSV files
+   * Import TradFi CSV files for specific timeframe
    */
-  async importTradFiCSVs() {
-    return this.importCSVFiles('./data/tradfi', 'tradfi');
+  async importTradFiCSVs(timeframe = 'm1') {
+    return this.importCSVFiles(`./data/tradfi`, 'tradfi', timeframe);
   }
 
   /**
-   * Import Crypto CSV files
+   * Import Crypto CSV files for specific timeframe
    */
-  async importCryptoCSVs() {
-    return this.importCSVFiles('./data/crypto', 'crypto');
+  async importCryptoCSVs(timeframe = 'm1') {
+    return this.importCSVFiles(`./data/crypto`, 'crypto', timeframe);
   }
 
   /**
-   * Generic method to import CSV files from a directory
+   * Generic method to import CSV files from a directory for specific timeframe
    */
-  async importCSVFiles(dirPath, type) {
+  async importCSVFiles(dirPath, type, timeframe) {
     let totalInserted = 0;
     let totalUpdated = 0;
     let filesProcessed = 0;
 
     try {
-      const files = await fsPromises.readdir(dirPath);
-      const csvFiles = files.filter(f => f.endsWith('.csv'));
-      
+      // Look for timeframe-specific directory first, then fallback to main directory
+      const timeframePath = path.join(dirPath, timeframe);
+      let actualPath = dirPath;
+
+      try {
+        await fsPromises.access(timeframePath);
+        actualPath = timeframePath;
+        console.log(`📁 Using timeframe-specific directory: ${timeframePath}`);
+      } catch {
+        console.log(`📁 Using main directory: ${dirPath} (no ${timeframe} subdirectory found)`);
+      }
+
+      const files = await fsPromises.readdir(actualPath);
+      const csvFiles = files.filter(f => f.endsWith('.csv') && f.includes(timeframe));
+
       const typeEmoji = type === 'tradfi' ? '📊' : '🪙';
       const typeName = type === 'tradfi' ? 'TradFi' : 'Crypto';
-      
-      console.log(`${typeEmoji} Found ${csvFiles.length} ${typeName} CSV files`);
-      
+
+      console.log(`${typeEmoji} Found ${csvFiles.length} ${typeName} CSV files for ${timeframe.toUpperCase()}`);
+
       for (const filename of csvFiles) {
-        const filePath = path.join(dirPath, filename);
-        
+        const filePath = path.join(actualPath, filename);
+
         let symbol, exchange;
         if (type === 'tradfi') {
           symbol = this.extractSymbolFromFilename(filename, 'tradfi');
@@ -176,28 +201,28 @@ class SymbolDatabaseManager {
           symbol = cryptoInfo.symbol;
           exchange = cryptoInfo.exchange;
         }
-        
+
         const displayName = exchange ? `${symbol} on ${exchange}` : symbol;
-        console.log(`📄 Processing: ${filename} (${displayName})`);
-        
+        console.log(`📄 Processing: ${filename} (${displayName}, ${timeframe.toUpperCase()})`);
+
         // Create table if it doesn't exist
-        if (!(await this.tableExists(symbol, type, exchange))) {
-          await this.createSymbolTable(symbol, type, exchange);
+        if (!(await this.tableExists(symbol, type, timeframe, exchange))) {
+          await this.createSymbolTable(symbol, type, timeframe, exchange);
         }
-        
-        const { inserted, updated } = await this.importCSVFile(filePath, symbol, exchange, type);
+
+        const { inserted, updated } = await this.importCSVFile(filePath, symbol, exchange, type, timeframe);
         totalInserted += inserted;
         totalUpdated += updated;
         filesProcessed++;
-        
+
         console.log(`   ✅ ${inserted} inserted, ${updated} updated`);
       }
-      
+
       return { inserted: totalInserted, updated: totalUpdated, files: filesProcessed };
-      
+
     } catch (error) {
       if (error.code === 'ENOENT') {
-        console.log(`📁 No ${type} data directory found`);
+        console.log(`📁 No ${type} data directory found for ${timeframe}`);
         return { inserted: 0, updated: 0, files: 0 };
       }
       throw error;
@@ -205,9 +230,9 @@ class SymbolDatabaseManager {
   }
 
   /**
-   * Import CSV file to symbol-specific table
+   * Import CSV file to symbol-specific table with timeframe
    */
-  async importCSVFile(filePath, symbol, exchange, type) {
+  async importCSVFile(filePath, symbol, exchange, type, timeframe) {
     return new Promise((resolve, reject) => {
       let records = [];
       let rowCount = 0;
@@ -251,12 +276,12 @@ class SymbolDatabaseManager {
             
             // Insert all records in one go
             console.log(`   💾 Inserting ${records.length.toLocaleString()} records...`);
-            const result = await this.insertRecordsBatched(records, symbol, type, exchange);
-            
+            const result = await this.insertRecordsBatched(records, symbol, type, timeframe, exchange);
+
             console.log(`   🎉 Import complete: ${result.inserted.toLocaleString()} inserted, ${result.updated.toLocaleString()} updated`);
-            
+
             // Update database metadata after successful import
-            const tableName = this.getTableName(symbol, type, exchange);
+            const tableName = this.getTableName(symbol, type, timeframe, exchange);
             await this.dbMetadataManager.markSymbolUpdated(tableName);
             
             resolve({ inserted: result.inserted, updated: result.updated });
@@ -269,16 +294,16 @@ class SymbolDatabaseManager {
   }
 
   /**
-   * Insert records to specific symbol table
+   * Insert records to specific symbol table with timeframe
    */
-  async insertRecordsBatched(records, symbol, assetType, exchange = null) {
+  async insertRecordsBatched(records, symbol, assetType, timeframe, exchange = null) {
     const BATCH_SIZE = config.INSERT_BATCH_SIZE;
     let totalInserted = 0;
     let totalUpdated = 0;
     let failedBatches = 0;
     let errorMessages = [];
     const totalBatches = Math.ceil(records.length / BATCH_SIZE);
-    const tableName = this.getTableName(symbol, assetType, exchange);
+    const tableName = this.getTableName(symbol, assetType, timeframe, exchange);
 
     const startTime = Date.now();
     let lastProgressTime = startTime;
@@ -291,7 +316,7 @@ class SymbolDatabaseManager {
       
       try {
         const batchStart = Date.now();
-        const { inserted, updated } = await this.insertBatch(batch, tableName);
+        const { inserted, updated } = await this.insertBatch(batch, tableName, timeframe);
         const batchTime = Date.now() - batchStart;
         
         totalInserted += inserted;
@@ -357,9 +382,9 @@ class SymbolDatabaseManager {
   }
 
   /**
-   * Insert batch into specific table
+   * Insert batch into specific table with timeframe
    */
-  async insertBatch(batch, tableName) {
+  async insertBatch(batch, tableName, timeframe) {
     const client = await this.pool.connect();
     let inserted = 0;
     let updated = 0;
@@ -368,16 +393,17 @@ class SymbolDatabaseManager {
       await client.query('BEGIN');
 
       const insertQuery = `
-        INSERT INTO ${tableName} (timestamp, open, high, low, close, volume, day_of_week)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (timestamp) 
-        DO UPDATE SET 
+        INSERT INTO ${tableName} (timestamp, open, high, low, close, volume, day_of_week, timeframe)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (timestamp)
+        DO UPDATE SET
           open = EXCLUDED.open,
           high = EXCLUDED.high,
           low = EXCLUDED.low,
           close = EXCLUDED.close,
           volume = EXCLUDED.volume,
-          day_of_week = EXCLUDED.day_of_week
+          day_of_week = EXCLUDED.day_of_week,
+          timeframe = EXCLUDED.timeframe
         RETURNING (xmax = 0) AS inserted
       `;
 
@@ -389,7 +415,8 @@ class SymbolDatabaseManager {
           record.low,
           record.close,
           record.volume,
-          record.day_of_week
+          record.day_of_week,
+          timeframe
         ];
 
         const result = await client.query(insertQuery, values);

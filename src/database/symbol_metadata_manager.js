@@ -29,7 +29,7 @@ class SymbolMetadataManager {
       const tables = await this.getAllOHLCVTables();
       
       for (const table of tables) {
-        await this.generateSymbolMetadata(table.table_name, table.asset_type, table.symbol, table.exchange);
+        await this.generateSymbolMetadata(table.table_name, table.asset_type, table.symbol, table.timeframe, table.exchange);
         totalTables++;
       }
       
@@ -64,32 +64,45 @@ class SymbolMetadataManager {
         const tableName = row.table_name;
         const isCrypto = tableName.includes('_crypto_ohlcv');
         const isTradFi = tableName.includes('_tradfi_ohlcv');
-        
-        let symbol, exchange, assetType;
-        
+
+        let symbol, exchange, assetType, timeframe;
+
         if (isTradFi) {
           assetType = 'tradfi';
-          symbol = tableName.replace('_tradfi_ohlcv', '');
+          // Format: symbol_timeframe_tradfi_ohlcv
+          const withoutSuffix = tableName.replace('_tradfi_ohlcv', '');
+          const parts = withoutSuffix.split('_');
+          if (parts.length >= 2) {
+            timeframe = parts[parts.length - 1]; // Last part is timeframe
+            symbol = parts.slice(0, -1).join('_'); // Everything before timeframe
+          } else {
+            symbol = parts[0];
+            timeframe = 'm1'; // fallback
+          }
           exchange = null;
         } else if (isCrypto) {
           assetType = 'crypto';
-          const parts = tableName.replace('_crypto_ohlcv', '').split('_');
-          // Reconstruct symbol (e.g., btcusdt_binance -> BTC/USDT)
-          if (parts.length >= 2) {
-            const symbolPart = parts.slice(0, -1).join('');
-            exchange = parts[parts.length - 1];
-            // Try to reconstruct crypto symbol format
+          // Format: symbol_timeframe_exchange_crypto_ohlcv
+          const withoutSuffix = tableName.replace('_crypto_ohlcv', '');
+          const parts = withoutSuffix.split('_');
+
+          if (parts.length >= 3) {
+            exchange = parts[parts.length - 1]; // Last part is exchange
+            timeframe = parts[parts.length - 2]; // Second to last is timeframe
+            const symbolPart = parts.slice(0, -2).join(''); // Everything before timeframe and exchange
             symbol = this.reconstructCryptoSymbol(symbolPart);
           } else {
             symbol = parts[0];
+            timeframe = 'm1';
             exchange = 'unknown';
           }
         }
-        
+
         return {
           table_name: tableName,
           asset_type: assetType,
           symbol: symbol,
+          timeframe: timeframe,
           exchange: exchange
         };
       });
@@ -101,9 +114,9 @@ class SymbolMetadataManager {
   }
 
   /**
-   * Generate metadata for a specific symbol table
+   * Generate metadata for a specific symbol table with timeframe
    */
-  async generateSymbolMetadata(tableName, assetType, symbol, exchange = null) {
+  async generateSymbolMetadata(tableName, assetType, symbol, timeframe = 'm1', exchange = null) {
     try {
       const query = `
         SELECT 
@@ -126,10 +139,11 @@ class SymbolMetadataManager {
       
       const metadata = {
         symbol: symbol,
+        timeframe: timeframe,
         table_name: tableName,
         asset_type: assetType,
         exchange: exchange,
-        
+
         // Core statistics
         total_records: parseInt(row.record_count),
         first_available_timestamp: row.first_timestamp?.toISOString(),
@@ -156,19 +170,19 @@ class SymbolMetadataManager {
         can_update_from: row.last_timestamp?.toISOString() || null
       };
       
-      // Generate filename
+      // Generate filename with timeframe
       let filename;
       if (assetType === 'tradfi') {
-        filename = `metadata_${symbol}_tradfi.json`;
+        filename = `metadata_${symbol}_${timeframe}_tradfi.json`;
       } else {
         const cleanSymbol = symbol.replace('/', '').toLowerCase();
-        filename = `metadata_${cleanSymbol}_${exchange}_crypto.json`;
+        filename = `metadata_${cleanSymbol}_${timeframe}_${exchange}_crypto.json`;
       }
       
       const filePath = path.join(this.metadataPath, 'symbols', filename);
       await fs.writeFile(filePath, JSON.stringify(metadata, null, 2));
       
-      console.log(`   📄 ${symbol}${exchange ? ` (${exchange})` : ''}: ${metadata.total_records} records, ${metadata.coverage_days} days`);
+      console.log(`   📄 ${symbol} (${timeframe.toUpperCase()})${exchange ? ` (${exchange})` : ''}: ${metadata.total_records} records, ${metadata.coverage_days} days`);
       
       return metadata;
       
@@ -252,9 +266,9 @@ class SymbolMetadataManager {
   /**
    * Update metadata after data import
    */
-  async updateSymbolMetadata(symbol, assetType, exchange = null) {
-    const tableName = this.getTableName(symbol, assetType, exchange);
-    return this.generateSymbolMetadata(tableName, assetType, symbol, exchange);
+  async updateSymbolMetadata(symbol, assetType, timeframe = 'm1', exchange = null) {
+    const tableName = this.getTableName(symbol, assetType, timeframe, exchange);
+    return this.generateSymbolMetadata(tableName, assetType, symbol, timeframe, exchange);
   }
 
   /**
@@ -334,14 +348,14 @@ class SymbolMetadataManager {
   }
 
   /**
-   * Helper method to get table name
+   * Helper method to get table name with timeframe
    */
-  getTableName(symbol, assetType, exchange = null) {
+  getTableName(symbol, assetType, timeframe = 'm1', exchange = null) {
     if (assetType === 'tradfi') {
-      return `${symbol.toLowerCase()}_tradfi_ohlcv`;
+      return `${symbol.toLowerCase()}_${timeframe.toLowerCase()}_tradfi_ohlcv`;
     } else {
       const cleanSymbol = symbol.replace('/', '').toLowerCase();
-      return `${cleanSymbol}_${exchange.toLowerCase()}_crypto_ohlcv`;
+      return `${cleanSymbol}_${timeframe.toLowerCase()}_${exchange.toLowerCase()}_crypto_ohlcv`;
     }
   }
 

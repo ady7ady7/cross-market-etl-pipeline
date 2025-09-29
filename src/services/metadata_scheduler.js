@@ -121,15 +121,16 @@ class MetadataScheduler {
     
     try {
       const metadataQuery = `
-        SELECT 
+        SELECT
           symbol,
+          timeframe,
           asset_type,
           exchange,
           last_available_timestamp,
           total_records,
           can_update_from
-        FROM symbol_metadata 
-        ORDER BY asset_type, symbol
+        FROM symbol_metadata
+        ORDER BY asset_type, symbol, timeframe
       `;
 
       const result = await client.query(metadataQuery);
@@ -140,13 +141,14 @@ class MetadataScheduler {
       console.log('\n📋 Symbol Metadata Analysis:');
       
       result.rows.forEach(row => {
-        // Show 2 key values per symbol as requested
-        console.log(`   ${row.symbol} (${row.asset_type}): Records=${row.total_records}, Last=${row.last_available_timestamp?.toISOString().split('T')[0] || 'None'}`);
-        
+        // Show key values per symbol and timeframe
+        console.log(`   ${row.symbol} (${row.timeframe.toUpperCase()}, ${row.asset_type}): Records=${row.total_records}, Last=${row.last_available_timestamp?.toISOString().split('T')[0] || 'None'}`);
+
         if (row.asset_type === 'tradfi') {
           tradfiSymbols.push({
             symbol: row.symbol,
-            name: row.symbol.toUpperCase(), // Generate name from symbol
+            timeframe: row.timeframe,
+            name: row.symbol.toUpperCase(),
             lastTimestamp: row.last_available_timestamp,
             canUpdateFrom: row.can_update_from,
             totalRecords: row.total_records
@@ -154,6 +156,7 @@ class MetadataScheduler {
         } else if (row.asset_type === 'crypto') {
           cryptoSymbols.push({
             symbol: row.symbol,
+            timeframe: row.timeframe,
             name: row.symbol,
             exchange: row.exchange || 'binance',
             lastTimestamp: row.last_available_timestamp,
@@ -241,82 +244,125 @@ class MetadataScheduler {
    * Run TradFi ETL with specific symbols and date range
    */
   async runTradFiETL(tradfiSymbols, dateRange) {
-    // Create temporary config for TradFi
-    const tradfiConfig = {
-      assets: { tradfi: tradfiSymbols },
-      dateRanges: { default: dateRange },
-      tradfi: {
-        timeframe: "m1",
-        batchSize: 5,
-        pauseBetweenBatchesMs: 5000
+    // Group symbols by timeframe
+    const symbolsByTimeframe = {};
+    tradfiSymbols.forEach(symbol => {
+      if (!symbolsByTimeframe[symbol.timeframe]) {
+        symbolsByTimeframe[symbol.timeframe] = [];
       }
-    };
+      symbolsByTimeframe[symbol.timeframe].push(symbol);
+    });
 
-    const tempConfigPath = path.join(__dirname, '../../temp_tradfi_config.json');
-    
-    try {
-      fs.writeFileSync(tempConfigPath, JSON.stringify(tradfiConfig, null, 2));
-      console.log(`📝 Created temp config: ${tempConfigPath}`);
-      console.log(`📊 Config contains ${tradfiSymbols.length} symbols`);
-      
-      console.log(`📊 Running TradFi import for ${tradfiSymbols.length} symbols...`);
-      console.log(`📅 Date range: ${dateRange.from} to ${dateRange.to}`);
-      
-      const result = await this.runCommand('node', [
-        'src/etl/dukascopy_importer.js'
-      ], {
-        CONFIG_PATH: tempConfigPath
-      });
+    console.log(`📊 TradFi symbols grouped by timeframe:`, Object.keys(symbolsByTimeframe).map(tf => `${tf}: ${symbolsByTimeframe[tf].length}`).join(', '));
 
-      if (result.success) {
-        console.log('✅ TradFi ETL completed successfully');
-      } else {
-        console.error('❌ TradFi ETL failed with code:', result.code);
-      }
+    // Process each timeframe
+    let overallSuccess = true;
+    for (const [timeframe, symbols] of Object.entries(symbolsByTimeframe)) {
+      console.log(`\n📊 Processing TradFi ${timeframe.toUpperCase()}: ${symbols.length} symbols`);
 
-      return result.success;
-
-    } catch (error) {
-      console.error('❌ TradFi ETL setup failed:', error);
-      return false;
-    } finally {
-      // Cleanup temp config
-      try {
-        if (fs.existsSync(tempConfigPath)) {
-          fs.unlinkSync(tempConfigPath);
-          console.log('🧹 Cleaned up temp config file');
+      // Create temporary config for TradFi for this timeframe
+      const tradfiConfig = {
+        assets: { tradfi: symbols.map(s => ({ symbol: s.symbol, name: s.name })) },
+        dateRanges: { default: dateRange },
+        tradfi: {
+          timeframe: timeframe,
+          batchSize: 5,
+          pauseBetweenBatchesMs: 5000
         }
-      } catch (cleanupError) {
-        console.warn('⚠️ Failed to cleanup temp config:', cleanupError.message);
+      };
+
+      const tempConfigPath = path.join(__dirname, `../../temp_tradfi_${timeframe}_config.json`);
+
+      try {
+        fs.writeFileSync(tempConfigPath, JSON.stringify(tradfiConfig, null, 2));
+        console.log(`📝 Created temp config for ${timeframe}: ${tempConfigPath}`);
+        console.log(`📊 Config contains ${symbols.length} symbols`);
+
+        console.log(`📊 Running TradFi import for ${symbols.length} symbols (${timeframe.toUpperCase()})...`);
+        console.log(`📅 Date range: ${dateRange.from} to ${dateRange.to}`);
+
+        const result = await this.runCommand('node', [
+          'src/etl/dukascopy_importer.js'
+        ], {
+          CONFIG_PATH: tempConfigPath
+        });
+
+        if (result.success) {
+          console.log(`✅ TradFi ETL (${timeframe.toUpperCase()}) completed successfully`);
+        } else {
+          console.error(`❌ TradFi ETL (${timeframe.toUpperCase()}) failed with code:`, result.code);
+          overallSuccess = false;
+        }
+
+      } catch (error) {
+        console.error(`❌ TradFi ETL setup failed for ${timeframe}:`, error);
+        overallSuccess = false;
+      } finally {
+        // Cleanup temp config
+        try {
+          if (fs.existsSync(tempConfigPath)) {
+            fs.unlinkSync(tempConfigPath);
+            console.log(`🧹 Cleaned up temp config file for ${timeframe}`);
+          }
+        } catch (cleanupError) {
+          console.warn(`⚠️ Failed to cleanup temp config for ${timeframe}:`, cleanupError.message);
+        }
       }
     }
+
+    return overallSuccess;
   }
   /**
    * Run Crypto ETL with specific symbols and date range
    */
   async runCryptoETL(cryptoSymbols, dateRange) {
-    // Set environment variables for crypto importer
-    const env = {
-      ...process.env,
-      ETL_CRYPTO_SYMBOLS: JSON.stringify(cryptoSymbols),
-      ETL_CRYPTO_START_DATE: dateRange.from,
-      ETL_CRYPTO_END_DATE: dateRange.to
-    };
+    // Group symbols by timeframe
+    const symbolsByTimeframe = {};
+    cryptoSymbols.forEach(symbol => {
+      if (!symbolsByTimeframe[symbol.timeframe]) {
+        symbolsByTimeframe[symbol.timeframe] = [];
+      }
+      symbolsByTimeframe[symbol.timeframe].push(symbol);
+    });
 
-    console.log(`🪙 Running Crypto import for ${cryptoSymbols.length} symbols...`);
-    
-    // Use the correct Python executable for Windows
-    const pythonCmd = process.platform === 'win32' 
-      ? 'C:\\Users\\HARDPC\\.pyenv\\pyenv-win\\versions\\3.12.2\\python.exe'
-      : 'python3';
-    
-    console.log(`🐍 Using Python: ${pythonCmd}`);
-    
-    const result = await this.runCommand(pythonCmd, [
-      'src/etl/crypto_importer.py'
-    ], env);
+    console.log(`🪙 Crypto symbols grouped by timeframe:`, Object.keys(symbolsByTimeframe).map(tf => `${tf}: ${symbolsByTimeframe[tf].length}`).join(', '));
 
-    return result.success;
+    // Process each timeframe
+    let overallSuccess = true;
+    for (const [timeframe, symbols] of Object.entries(symbolsByTimeframe)) {
+      console.log(`\n🪙 Processing Crypto ${timeframe.toUpperCase()}: ${symbols.length} symbols`);
+
+      // Set environment variables for crypto importer for this timeframe
+      const env = {
+        ...process.env,
+        ETL_CRYPTO_SYMBOLS: JSON.stringify(symbols),
+        ETL_CRYPTO_TIMEFRAME: timeframe,
+        ETL_CRYPTO_START_DATE: dateRange.from,
+        ETL_CRYPTO_END_DATE: dateRange.to
+      };
+
+      console.log(`🪙 Running Crypto import for ${symbols.length} symbols (${timeframe.toUpperCase()})...`);
+
+      // Use the correct Python executable for Windows
+      const pythonCmd = process.platform === 'win32'
+        ? 'C:\\Users\\HARDPC\\.pyenv\\pyenv-win\\versions\\3.12.2\\python.exe'
+        : 'python3';
+
+      console.log(`🐍 Using Python: ${pythonCmd}`);
+
+      const result = await this.runCommand(pythonCmd, [
+        'src/etl/crypto_importer.py'
+      ], env);
+
+      if (result.success) {
+        console.log(`✅ Crypto ETL (${timeframe.toUpperCase()}) completed successfully`);
+      } else {
+        console.error(`❌ Crypto ETL (${timeframe.toUpperCase()}) failed`);
+        overallSuccess = false;
+      }
+    }
+
+    return overallSuccess;
   }
 
   /**

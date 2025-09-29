@@ -118,16 +118,21 @@
       }
     ]
   },
+  "timeframes": ["m1", "m5", "h1"],
   "tradfi": {
-    "timeframe": "m1",
-    "batchSize": 5,
-    "pauseBetweenBatchesMs": 5000
+    "timeframes": {
+      "m1": { "batchSize": 5, "pauseBetweenBatchesMs": 5000 },
+      "m5": { "batchSize": 3, "pauseBetweenBatchesMs": 8000 },
+      "h1": { "batchSize": 2, "pauseBetweenBatchesMs": 10000 }
+    }
   },
   "crypto": {
-    "timeframe": "1m",
+    "timeframes": {
+      "m1": { "ccxtTimeframe": "1m", "batchSize": 2000, "rateLimitDelay": 3 },
+      "m5": { "ccxtTimeframe": "5m", "batchSize": 1000, "rateLimitDelay": 5 },
+      "h1": { "ccxtTimeframe": "1h", "batchSize": 500, "rateLimitDelay": 8 }
+    },
     "defaultExchange": "binance",
-    "batchSize": 2000,
-    "rateLimitDelay": 3,
     "maxRetries": 3
   },
   "database": {
