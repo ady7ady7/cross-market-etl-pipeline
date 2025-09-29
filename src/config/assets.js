@@ -15,19 +15,26 @@ const TRADFI_ASSETS = masterConfig.assets.tradfi;
 // Crypto Assets List - from master config
 const CRYPTO_ASSETS = masterConfig.assets.crypto;
 
-// Global TradFi Configuration - uses master config
+// Global TradFi Configuration - updated for multi-timeframe support
 const TRADFI_CONFIG = {
-  timeframe: masterConfig.tradfi.timeframe,
-  batchSize: masterConfig.tradfi.batchSize,
-  pauseBetweenBatchesMs: masterConfig.tradfi.pauseBetweenBatchesMs,
-  availableTimeframes: ['m1', 'm5', 'h1', 'd1']
+  timeframes: masterConfig.tradfi.timeframes,
+  availableTimeframes: masterConfig.timeframes || ['m1', 'm5', 'h1'],
+  // Legacy support - use m1 settings as default
+  timeframe: 'm1',
+  batchSize: masterConfig.tradfi.timeframes?.m1?.batchSize || 5,
+  pauseBetweenBatchesMs: masterConfig.tradfi.timeframes?.m1?.pauseBetweenBatchesMs || 5000
 };
 
-// Global Crypto Configuration - uses master config  
+// Global Crypto Configuration - updated for multi-timeframe support
 const CRYPTO_CONFIG = {
-  timeframe: masterConfig.crypto.timeframe,
+  timeframes: masterConfig.crypto.timeframes,
   defaultExchange: masterConfig.crypto.defaultExchange,
-  availableTimeframes: ['1m', '5m', '1h', '1d']
+  maxRetries: masterConfig.crypto.maxRetries,
+  availableTimeframes: masterConfig.timeframes || ['m1', 'm5', 'h1'],
+  // Legacy support - use m1 settings as default
+  timeframe: 'm1',
+  batchSize: masterConfig.crypto.timeframes?.m1?.batchSize || 2000,
+  rateLimitDelay: masterConfig.crypto.timeframes?.m1?.rateLimitDelay || 3
 };
 
 const DATA_CONFIG = {

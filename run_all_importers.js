@@ -12,16 +12,30 @@ class DataImportOrchestrator {
       tradfi: null,
       crypto: null
     };
+    this.timeframes = null;
+  }
+
+  setTimeframes(timeframes) {
+    this.timeframes = timeframes;
+    console.log(`🎯 Targeting timeframes: ${timeframes}`);
   }
 
   async runNodeImporter() {
     console.log('🔄 Starting TradFi (Node.js) data import...\n');
-    
+
     return new Promise((resolve, reject) => {
       const nodePath = path.join(__dirname, 'src', 'etl', 'dukascopy_importer.js');
+
+      // Set up environment variables
+      const env = { ...process.env };
+      if (this.timeframes) {
+        env.TIMEFRAMES = this.timeframes;
+      }
+
       const nodeProcess = spawn('node', [nodePath], {
         stdio: 'inherit',
-        cwd: __dirname
+        cwd: __dirname,
+        env: env
       });
 
       nodeProcess.on('close', (code) => {
@@ -43,20 +57,27 @@ class DataImportOrchestrator {
 
   async runPythonImporter() {
     console.log('\n🔄 Starting Crypto (Python) data import...\n');
-    
+
     return new Promise((resolve, reject) => {
       const pythonPath = path.join(__dirname, 'src', 'etl', 'crypto_importer.py');
-      
+
       // Use the exact Python executable that pyenv provides
-      const pythonCmd = process.platform === 'win32' 
+      const pythonCmd = process.platform === 'win32'
         ? 'C:\\Users\\HARDPC\\.pyenv\\pyenv-win\\versions\\3.12.2\\python.exe'
         : 'python3';
-      
+
       console.log('🐍 Using Python executable:', pythonCmd);
-      
+
+      // Set up environment variables
+      const env = { ...process.env };
+      if (this.timeframes) {
+        env.TIMEFRAMES = this.timeframes;
+      }
+
       const pythonProcess = spawn(pythonCmd, [pythonPath], {
         stdio: 'inherit',
-        cwd: __dirname
+        cwd: __dirname,
+        env: env
       });
 
       pythonProcess.on('close', (code) => {
@@ -155,10 +176,17 @@ class DataImportOrchestrator {
 // Main execution
 async function main() {
   const orchestrator = new DataImportOrchestrator();
-  
+
   // Check command line arguments
   const args = process.argv.slice(2);
-  
+
+  // Parse timeframes argument
+  const timeframesArg = args.find(arg => arg.startsWith('--timeframes='));
+  if (timeframesArg) {
+    const timeframes = timeframesArg.split('=')[1];
+    orchestrator.setTimeframes(timeframes);
+  }
+
   if (args.includes('--tradfi-only')) {
     await orchestrator.runTradFiOnly();
   } else if (args.includes('--crypto-only')) {

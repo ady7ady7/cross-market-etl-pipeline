@@ -118,7 +118,8 @@
       }
     ]
   },
-  "timeframes": ["m1", "m5", "h1"],
+  "timeframes": ["m5", "h1"],
+  "ignored_timeframes": ["m1"],
   "tradfi": {
     "timeframes": {
       "m1": { "batchSize": 5, "pauseBetweenBatchesMs": 5000 },
