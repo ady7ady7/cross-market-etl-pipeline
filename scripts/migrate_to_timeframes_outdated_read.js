@@ -1,11 +1,28 @@
 /**
- * Migration Script: Single Timeframe to Multi-Timeframe Schema
+ * ⚠️  OUTDATED MIGRATION SCRIPT - FOR EDUCATIONAL PURPOSE ONLY
  *
- * This script migrates existing M1 data to the new timeframe-aware schema:
- * 1. Updates symbol_metadata table structure
- * 2. Renames existing tables to include M1 timeframe
- * 3. Adds timeframe column to existing data tables
- * 4. Updates metadata records with timeframe information
+ * This script was used to migrate from single-timeframe to multi-timeframe schema
+ * Date Used: September 2025
+ * Purpose: One-time migration from old schema to new timeframe-aware schema
+ *
+ * WHAT THIS SCRIPT DID:
+ * 1. Updated symbol_metadata table structure to include timeframe column
+ * 2. Renamed existing tables from:
+ *    - symbol_tradfi_ohlcv → symbol_m1_tradfi_ohlcv
+ *    - symbol_exchange_crypto_ohlcv → symbol_m1_exchange_crypto_ohlcv
+ * 3. Added timeframe column to existing data tables (set to 'm1')
+ * 4. Updated metadata records with new table names and timeframe information
+ * 5. Generated available_timestamps from existing data
+ *
+ * ❌ DO NOT RUN THIS SCRIPT AGAIN - IT WAS A ONE-TIME MIGRATION
+ *
+ * This file is kept for:
+ * - Educational purposes to understand the migration process
+ * - Reference for future schema changes
+ * - Documentation of the transformation from single to multi-timeframe
+ *
+ * If you need to understand how tables were migrated or need to perform
+ * similar migrations in the future, this serves as a reference template.
  */
 
 require('dotenv').config();

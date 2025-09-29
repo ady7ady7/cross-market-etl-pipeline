@@ -9,6 +9,9 @@
     "import:all": "node run_all_importers.js",
     "import:tradfi": "node run_all_importers.js --tradfi-only",
     "import:crypto": "node run_all_importers.js --crypto-only",
+    "import:m5": "TIMEFRAMES=m5 node run_all_importers.js",
+    "import:h1": "TIMEFRAMES=h1 node run_all_importers.js",
+    "import:m5h1": "TIMEFRAMES=m5,h1 node run_all_importers.js",
     "db:test": "node -e \"require('./src/config/database').testConnection()\"",
     "db:import": "node scripts/import_to_database.js",
     "db:stats": "node -e \"const mgr = require('./src/database/symbol_manager'); new mgr().metadataManager.getAllSymbolMetadata().then(console.log)\"",
@@ -18,7 +21,6 @@
     "scheduler:start": "node src/services/metadata_scheduler.js",
     "scheduler:test": "node src/services/metadata_scheduler.js --test-metadata",
     "scheduler:once": "node src/services/metadata_scheduler.js --run-once",
-    "migrate:timeframes": "node scripts/migrate_to_timeframes.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

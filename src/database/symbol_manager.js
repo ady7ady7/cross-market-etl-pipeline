@@ -107,7 +107,15 @@ class SymbolDatabaseManager {
 
     try {
       const config = require('../../config.json');
-      const timeframes = config.timeframes || ['m1'];
+
+      // Check for environment variable override
+      let timeframes;
+      if (process.env.TIMEFRAMES) {
+        timeframes = process.env.TIMEFRAMES.split(',').map(tf => tf.trim());
+        console.log(`🎯 Using timeframes from environment: ${timeframes.join(', ')}`);
+      } else {
+        timeframes = config.timeframes || ['m1'];
+      }
 
       let totalResults = { inserted: 0, updated: 0, files: 0 };
 
