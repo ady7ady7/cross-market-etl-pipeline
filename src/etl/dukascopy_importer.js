@@ -1,5 +1,5 @@
 /**
- * Dukascopy TradFi Data Importer
+ * Dukascopy TradFi Data Importer - Multi-Timeframe Support
  * Fetches historical rate data from Dukascopy with proper batching and logging
  */
 
@@ -9,6 +9,9 @@ const { TRADFI_ASSETS, TRADFI_CONFIG, DATA_CONFIG } = require('../config/assets'
 const Logger = require('../utils/logger');
 const CSVWriter = require('../utils/csv_writer');
 
+// Load master config for timeframe support
+const masterConfig = JSON.parse(fs.readFileSync(require('path').join(__dirname, '../../config.json'), 'utf8'));
+
 class DukascopyImporter {
   constructor() {
     this.logger = new Logger(
@@ -17,25 +20,45 @@ class DukascopyImporter {
       DATA_CONFIG.logConfig.logsPath
     );
     this.csvWriter = new CSVWriter(DATA_CONFIG.dataPaths.tradfi);
+
+    // Get active timeframes from config and environment
+    this.activeTimeframes = this.getActiveTimeframes();
+    console.log(`🎯 Active timeframes: ${this.activeTimeframes.join(', ')}`);
+  }
+
+  getActiveTimeframes() {
+    // Check for environment variable override first
+    if (process.env.TIMEFRAMES) {
+      return process.env.TIMEFRAMES.split(',').map(tf => tf.trim());
+    }
+
+    // Use config.json timeframes array
+    return masterConfig.timeframes || ['m1'];
   }
 
   async fetchHistoricalData(asset, dateRange = null, timeframe = null) {
     const dates = dateRange || DATA_CONFIG.defaultDateRange;
-    const tf = timeframe || TRADFI_CONFIG.timeframe;
-    
+    const tf = timeframe || 'm1'; // Default to m1 if not specified
+
+    // Get timeframe-specific config
+    const timeframeConfig = masterConfig.tradfi.timeframes[tf] || {
+      batchSize: 5,
+      pauseBetweenBatchesMs: 5000
+    };
+
     await this.logger.start();
     await this.logger.info(`Fetching ${asset.name} (${asset.symbol}) data`);
     await this.logger.info(`Timeframe: ${tf}`);
     await this.logger.info(`Date range: ${dates.from.toISOString()} to ${dates.to.toISOString()}`);
-    await this.logger.info(`Batch size: ${TRADFI_CONFIG.batchSize}, Pause: ${TRADFI_CONFIG.pauseBetweenBatchesMs}ms`);
+    await this.logger.info(`Batch size: ${timeframeConfig.batchSize}, Pause: ${timeframeConfig.pauseBetweenBatchesMs}ms`);
 
     try {
       const historicalRates = await getHistoricalRates({
         instrument: asset.symbol,
         dates: dates,
         timeframe: tf,
-        batchSize: TRADFI_CONFIG.batchSize,
-        pauseBetweenBatchesMs: TRADFI_CONFIG.pauseBetweenBatchesMs,
+        batchSize: timeframeConfig.batchSize,
+        pauseBetweenBatchesMs: timeframeConfig.pauseBetweenBatchesMs,
         
         // Request configuration for better reliability
         format: 'json',
@@ -84,26 +107,40 @@ class DukascopyImporter {
 
   async fetchAllAssets(dateRange = null, timeframe = null) {
     const results = {};
-    
-    for (let i = 0; i < TRADFI_ASSETS.length; i++) {
-      const asset = TRADFI_ASSETS[i];
-      
-      await this.logger.info(`\n${'='.repeat(60)}`);
-      await this.logger.info(`Processing asset ${i + 1}/${TRADFI_ASSETS.length}: ${asset.name.toUpperCase()}`);
-      await this.logger.info(`${'='.repeat(60)}`);
-      
-      try {
-        const result = await this.fetchHistoricalData(asset, dateRange, timeframe);
-        results[asset.symbol] = result;
-        
-        // Small delay between different assets to be respectful
-        if (i < TRADFI_ASSETS.length - 1) {
-          await this.logger.info('Waiting 3 seconds before next asset...');
-          await this.sleep(3000);
+    const timeframesToProcess = timeframe ? [timeframe] : this.activeTimeframes;
+
+    await this.logger.info(`📊 Processing ${timeframesToProcess.length} timeframe(s): ${timeframesToProcess.join(', ')}`);
+
+    for (const tf of timeframesToProcess) {
+      await this.logger.info(`\n🕒 Starting timeframe: ${tf.toUpperCase()}`);
+      results[tf] = {};
+
+      for (let i = 0; i < TRADFI_ASSETS.length; i++) {
+        const asset = TRADFI_ASSETS[i];
+
+        await this.logger.info(`\n${'='.repeat(60)}`);
+        await this.logger.info(`Processing asset ${i + 1}/${TRADFI_ASSETS.length}: ${asset.name.toUpperCase()} (${tf.toUpperCase()})`);
+        await this.logger.info(`${'='.repeat(60)}`);
+
+        try {
+          const result = await this.fetchHistoricalData(asset, dateRange, tf);
+          results[tf][asset.symbol] = result;
+
+          // Small delay between different assets to be respectful
+          if (i < TRADFI_ASSETS.length - 1) {
+            await this.logger.info('Waiting 3 seconds before next asset...');
+            await this.sleep(3000);
+          }
+        } catch (error) {
+          await this.logger.error(`Failed to process asset ${asset.symbol} (${tf})`, error);
+          results[tf][asset.symbol] = { error: error.message, asset, timeframe: tf };
         }
-      } catch (error) {
-        await this.logger.error(`Failed to process asset ${asset.symbol}`, error);
-        results[asset.symbol] = { error: error.message, asset };
+      }
+
+      // Longer delay between timeframes
+      if (timeframesToProcess.indexOf(tf) < timeframesToProcess.length - 1) {
+        await this.logger.info(`\n⏸️  Completed ${tf.toUpperCase()}, waiting 10 seconds before next timeframe...`);
+        await this.sleep(10000);
       }
     }
 
