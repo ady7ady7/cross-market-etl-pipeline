@@ -114,13 +114,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to check if table exists
-CREATE OR REPLACE FUNCTION table_exists(table_name TEXT)
+CREATE OR REPLACE FUNCTION table_exists(target_table_name TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
     RETURN EXISTS (
-        SELECT 1 
-        FROM information_schema.tables 
-        WHERE table_name = lower(table_name)
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_name = lower(target_table_name)
         AND table_schema = 'public'
     );
 END;
