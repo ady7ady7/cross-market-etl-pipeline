@@ -22,6 +22,7 @@
     "scheduler:start": "node src/services/metadata_scheduler.js",
     "scheduler:test": "node src/services/metadata_scheduler.js --test-metadata",
     "scheduler:once": "node src/services/metadata_scheduler.js --run-once",
+    "db:add-point-value": "node scripts/run_add_point_value.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
