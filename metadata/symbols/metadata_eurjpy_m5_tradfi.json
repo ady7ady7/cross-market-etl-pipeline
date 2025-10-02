@@ -1,0 +1,24 @@
+{
+  "symbol": "eurjpy",
+  "timeframe": "m5",
+  "table_name": "eurjpy_m5_tradfi_ohlcv",
+  "asset_type": "tradfi",
+  "exchange": null,
+  "total_records": 200887,
+  "first_available_timestamp": "2023-01-08T23:00:00.000Z",
+  "last_available_timestamp": "2025-09-16T21:55:00.000Z",
+  "coverage_days": 982,
+  "volume_available": true,
+  "data_format": "OHLCV",
+  "day_of_week_distribution": {
+    "monday": 40092,
+    "tuesday": 40509,
+    "wednesday": 39834,
+    "thursday": 40261,
+    "friday": 35820,
+    "saturday": 0,
+    "sunday": 4371
+  },
+  "last_metadata_update": "2025-10-02T01:09:38.130Z",
+  "can_update_from": "2025-09-16T21:55:00.000Z"
+}

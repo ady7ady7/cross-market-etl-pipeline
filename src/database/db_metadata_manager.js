@@ -32,29 +32,30 @@ class DatabaseMetadataManager {
   /**
    * Create or update metadata record for a symbol
    */
-  async upsertSymbolMetadata(symbol, tableName, assetType, exchange = null) {
+  async upsertSymbolMetadata(symbol, tableName, assetType, exchange = null, timeframe = 'm1') {
     const client = await this.pool.connect();
-    
+
     try {
       const query = `
         INSERT INTO symbol_metadata (
-          symbol, table_name, asset_type, exchange
+          symbol, table_name, asset_type, exchange, timeframe
         )
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (table_name) 
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (table_name)
         DO UPDATE SET
           symbol = EXCLUDED.symbol,
           asset_type = EXCLUDED.asset_type,
           exchange = EXCLUDED.exchange,
+          timeframe = EXCLUDED.timeframe,
           last_metadata_update = NOW()
         RETURNING id
       `;
-      
-      const result = await client.query(query, [symbol, tableName, assetType, exchange]);
-      
-      console.log(`✅ Metadata record created/updated for ${symbol}`);
+
+      const result = await client.query(query, [symbol, tableName, assetType, exchange, timeframe]);
+
+      console.log(`✅ Metadata record created/updated for ${symbol} (${timeframe})`);
       return result.rows[0].id;
-      
+
     } catch (error) {
       console.error(`❌ Failed to create metadata for ${symbol}:`, error);
       throw error;

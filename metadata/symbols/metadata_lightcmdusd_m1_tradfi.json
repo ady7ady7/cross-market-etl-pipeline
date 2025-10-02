@@ -1,0 +1,24 @@
+{
+  "symbol": "lightcmdusd",
+  "timeframe": "m1",
+  "table_name": "lightcmdusd_m1_tradfi_ohlcv",
+  "asset_type": "tradfi",
+  "exchange": null,
+  "total_records": 586802,
+  "first_available_timestamp": "2024-01-09T23:00:00.000Z",
+  "last_available_timestamp": "2025-09-16T23:59:00.000Z",
+  "coverage_days": 617,
+  "volume_available": true,
+  "data_format": "OHLCV",
+  "day_of_week_distribution": {
+    "monday": 117795,
+    "tuesday": 118523,
+    "wednesday": 115790,
+    "thursday": 117727,
+    "friday": 107888,
+    "saturday": 0,
+    "sunday": 9079
+  },
+  "last_metadata_update": "2025-10-02T01:09:40.301Z",
+  "can_update_from": "2025-09-16T23:59:00.000Z"
+}
