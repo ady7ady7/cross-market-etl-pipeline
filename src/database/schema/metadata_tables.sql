@@ -66,7 +66,7 @@ BEGIN
         sm.last_available_timestamp,
         sm.can_update_from
     FROM symbol_metadata sm
-    ORDER BY sm.last_data_update ASC NULLS FIRST;
+    ORDER BY sm.table_name;
 END;
 $$ LANGUAGE plpgsql;
 

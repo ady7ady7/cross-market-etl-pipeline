@@ -123,11 +123,12 @@ class DatabaseMetadataManager {
   async getAllMetadata() {
     try {
       const query = `
-        SELECT 
+        SELECT
           symbol,
           table_name,
           asset_type,
           exchange,
+          timeframe,
           total_records,
           first_available_timestamp,
           last_available_timestamp,
@@ -139,12 +140,12 @@ class DatabaseMetadataManager {
           can_update_from,
           last_data_update
         FROM symbol_metadata
-        ORDER BY asset_type, symbol
+        ORDER BY table_name
       `;
-      
+
       const result = await this.pool.query(query);
       return result.rows;
-      
+
     } catch (error) {
       console.error('Failed to get all metadata:', error);
       return [];
