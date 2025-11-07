@@ -52,11 +52,18 @@ async function addPointValue() {
     const sqlPath = path.join(__dirname, 'add_point_value_to_symbol_metadata.sql');
     const sqlContent = await fs.readFile(sqlPath, 'utf8');
 
-    // Split by semicolons and execute each statement
-    const statements = sqlContent
+    // Remove comments and split by semicolons
+    const cleanSQL = sqlContent
+      .split('\n')
+      .filter(line => !line.trim().startsWith('--'))
+      .join('\n');
+
+    const statements = cleanSQL
       .split(';')
       .map(s => s.trim())
-      .filter(s => s && !s.startsWith('--'));
+      .filter(s => s.length > 0);
+
+    console.log(`📋 Found ${statements.length} SQL statements to execute\n`);
 
     for (const statement of statements) {
       if (statement.toUpperCase().includes('ALTER TABLE')) {

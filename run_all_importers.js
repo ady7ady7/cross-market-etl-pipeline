@@ -1,10 +1,12 @@
 /**
  * Orchestrator script to run both TradFi and Crypto data importers
  * Can be used for cron jobs or manual execution
+ * Unified JavaScript implementation (no Python required)
  */
 
 const { spawn } = require('child_process');
 const path = require('path');
+const CryptoImporter = require('./src/etl/crypto_importer');
 
 class DataImportOrchestrator {
   constructor() {
@@ -55,46 +57,25 @@ class DataImportOrchestrator {
     });
   }
 
-  async runPythonImporter() {
-    console.log('\n🔄 Starting Crypto (Python) data import...\n');
+  async runCryptoImporter() {
+    console.log('\n🔄 Starting Crypto (Node.js) data import...\n');
 
-    return new Promise((resolve, reject) => {
-      const pythonPath = path.join(__dirname, 'src', 'etl', 'crypto_importer.py');
+    try {
+      const importer = new CryptoImporter();
 
-      // Use the exact Python executable that pyenv provides
-      const pythonCmd = process.platform === 'win32'
-        ? 'C:\\Users\\HARDPC\\.pyenv\\pyenv-win\\versions\\3.12.2\\python.exe'
-        : 'python3';
-
-      console.log('🐍 Using Python executable:', pythonCmd);
-
-      // Set up environment variables
-      const env = { ...process.env };
+      // Set timeframes if specified via environment variable
       if (this.timeframes) {
-        env.TIMEFRAMES = this.timeframes;
+        process.env.TIMEFRAMES = this.timeframes;
       }
 
-      const pythonProcess = spawn(pythonCmd, [pythonPath], {
-        stdio: 'inherit',
-        cwd: __dirname,
-        env: env
-      });
+      const results = await importer.fetchAllAssets();
 
-      pythonProcess.on('close', (code) => {
-        if (code === 0) {
-          console.log('\n✅ Crypto import completed successfully');
-          resolve({ success: true, code });
-        } else {
-          console.log(`\n❌ Crypto import failed with code ${code}`);
-          resolve({ success: false, code });
-        }
-      });
-
-      pythonProcess.on('error', (error) => {
-        console.error('❌ Failed to start Crypto importer:', error);
-        reject(error);
-      });
-    });
+      console.log('\n✅ Crypto import completed successfully');
+      return { success: true, results, code: 0 };
+    } catch (error) {
+      console.error('\n❌ Crypto import failed:', error);
+      return { success: false, error: error.message, code: 1 };
+    }
   }
 
   async runAll() {
@@ -114,8 +95,8 @@ class DataImportOrchestrator {
       console.log('\n⏸️  Waiting 5 seconds before starting crypto import...');
       await this.sleep(5000);
 
-      // Run Crypto import second
-      cryptoResult = await this.runPythonImporter();
+      // Run Crypto import second (now JavaScript-based)
+      cryptoResult = await this.runCryptoImporter();
       this.results.crypto = cryptoResult;
 
     } catch (error) {
@@ -134,7 +115,7 @@ class DataImportOrchestrator {
     console.log(`📊 TradFi import: ${tradfiResult.success ? '✅ Success' : '❌ Failed'}`);
     console.log(`🪙 Crypto import: ${cryptoResult.success ? '✅ Success' : '❌ Failed'}`);
     console.log(`🏁 End time: ${new Date().toISOString()}`);
-    
+
     // Check data directories
     console.log('\n📁 Data files:');
     console.log('   TradFi data: ./data/tradfi/');
@@ -156,7 +137,7 @@ class DataImportOrchestrator {
 
   async runCryptoOnly() {
     console.log('🚀 Running Crypto import only...\n');
-    const result = await this.runPythonImporter();
+    const result = await this.runCryptoImporter();
     console.log(`\n${result.success ? '🎊 Crypto import completed!' : '❌ Crypto import failed'}`);
     process.exit(result.success ? 0 : 1);
   }

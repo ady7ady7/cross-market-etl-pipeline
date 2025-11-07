@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/etl/dukascopy_importer.js",
-    "crypto": "python src/etl/crypto_importer.py",
+    "crypto": "node src/etl/crypto_importer.js",
     "import:all": "node run_all_importers.js",
     "import:tradfi": "node run_all_importers.js --tradfi-only",
     "import:crypto": "node run_all_importers.js --crypto-only",
@@ -35,6 +35,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "ccxt": "^4.4.91",
     "csv-parser": "^3.2.0",
     "csv-writer": "^1.6.0",
     "dotenv": "^17.2.1",
@@ -46,7 +47,6 @@
     "nodemon": "^3.1.4"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "python": ">=3.12.0"
+    "node": ">=18.0.0"
   }
 }
