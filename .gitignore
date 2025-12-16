@@ -14,7 +14,8 @@ __pycache__/
 .env.test.local
 .env.production.local
 
-# Data files
+# Data files and certificates
+certs/
 ca-certificate.crt
 data/
 *.csv
