@@ -8,31 +8,25 @@ After your migration is complete, use these commands to import only the timefram
 ```bash
 npm run import:m5
 ```
-
 ### Import Only H1 Data
 ```bash
 npm run import:h1
 ```
-
 ### Import Both M5 and H1 (Skip M1)
 ```bash
 npm run import:m5h1
 ```
-
 ### Import All Timeframes (M1, M5, H1)
 ```bash
 npm run import:all
 ```
-
 ## Alternative: Temporary Config Change
-
 You can also temporarily modify `config.json` line 121:
 
 **To import only M5 and H1:**
 ```json
 "timeframes": ["m5", "h1"],
 ```
-
 **To import only H1:**
 ```json
 "timeframes": ["h1"],
@@ -70,8 +64,3 @@ SELECT symbol, timeframe, total_records
 FROM symbol_metadata
 ORDER BY symbol, timeframe;
 ```
-
-## Migration Status
-
-✅ Migration completed - old single-timeframe schema migrated to multi-timeframe
-📁 Migration script preserved at: `scripts/migrate_to_timeframes_outdated_read.js`

@@ -44,7 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_symbol_metadata_timeframe ON symbol_metadata(time
 CREATE INDEX IF NOT EXISTS idx_symbol_metadata_table_name ON symbol_metadata(table_name);
 CREATE INDEX IF NOT EXISTS idx_symbol_metadata_symbol_timeframe ON symbol_metadata(symbol, timeframe);
 
--- Function to get symbols that need updating (simplified)
+-- Function to get symbols that need updating
 CREATE OR REPLACE FUNCTION get_symbols_needing_update()
 RETURNS TABLE(
     symbol VARCHAR(50),

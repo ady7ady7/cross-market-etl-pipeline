@@ -4,21 +4,21 @@
   "table_name": "deuidxeur_h1_tradfi_ohlcv",
   "asset_type": "tradfi",
   "exchange": null,
-  "total_records": 15866,
-  "first_available_timestamp": "2023-01-08T23:00:00.000Z",
-  "last_available_timestamp": "2025-09-16T21:00:00.000Z",
-  "coverage_days": 982,
+  "total_records": 30789,
+  "first_available_timestamp": "2020-09-14T22:00:00.000Z",
+  "last_available_timestamp": "2025-11-27T22:00:00.000Z",
+  "coverage_days": 1900,
   "volume_available": true,
   "data_format": "OHLCV",
   "day_of_week_distribution": {
-    "monday": 3163,
-    "tuesday": 3212,
-    "wednesday": 3172,
-    "thursday": 3212,
-    "friday": 2886,
+    "monday": 6124,
+    "tuesday": 6223,
+    "wednesday": 6206,
+    "thursday": 6234,
+    "friday": 5581,
     "saturday": 0,
-    "sunday": 221
+    "sunday": 421
   },
-  "last_metadata_update": "2025-10-02T01:09:31.484Z",
-  "can_update_from": "2025-09-16T21:00:00.000Z"
+  "last_metadata_update": "2025-11-30T09:59:55.620Z",
+  "can_update_from": "2025-11-27T22:00:00.000Z"
 }

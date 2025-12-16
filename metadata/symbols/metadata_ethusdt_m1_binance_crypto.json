@@ -4,21 +4,21 @@
   "table_name": "ethusdt_m1_binance_crypto_ohlcv",
   "asset_type": "crypto",
   "exchange": "binance",
-  "total_records": 887041,
-  "first_available_timestamp": "2024-01-09T23:00:00.000Z",
+  "total_records": 1413941,
+  "first_available_timestamp": "2023-01-09T00:00:00.000Z",
   "last_available_timestamp": "2025-09-17T00:00:00.000Z",
-  "coverage_days": 617,
+  "coverage_days": 982,
   "volume_available": true,
   "data_format": "OHLCV",
   "day_of_week_distribution": {
-    "monday": 126840,
-    "tuesday": 126720,
-    "wednesday": 126721,
-    "thursday": 126720,
-    "friday": 126720,
-    "saturday": 126720,
-    "sunday": 126600
+    "monday": 203160,
+    "tuesday": 203040,
+    "wednesday": 201541,
+    "thursday": 201600,
+    "friday": 201520,
+    "saturday": 201600,
+    "sunday": 201480
   },
-  "last_metadata_update": "2025-10-02T01:09:35.690Z",
+  "last_metadata_update": "2025-11-30T10:00:03.256Z",
   "can_update_from": "2025-09-17T00:00:00.000Z"
 }

@@ -17,12 +17,6 @@
     "csv:import": "node scripts/import_csv_only.js",
     "db:stats": "node -e \"const mgr = require('./src/database/symbol_manager'); new mgr().metadataManager.getAllSymbolMetadata().then(console.log)\"",
     "metadata:generate": "node -e \"const mgr = require('./src/database/symbol_metadata_manager'); new mgr().generateAllMetadata()\"",
-    "schedule:check": "node src/services/scheduled_updater.js --check",
-    "schedule:run": "node src/services/scheduled_updater.js --run",
-    "scheduler:start": "node src/services/metadata_scheduler.js",
-    "scheduler:test": "node src/services/metadata_scheduler.js --test-metadata",
-    "scheduler:once": "node src/services/metadata_scheduler.js --run-once",
-    "db:add-point-value": "node scripts/run_add_point_value.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

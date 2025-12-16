@@ -1,8 +1,8 @@
 {
   "dateRanges": {
     "default": {
-      "from": "2023-01-09",
-      "to": "2024-01-17"
+      "from": "2025-09-15",
+      "to": "2025-11-28"
     }
   },
   "assets": {
@@ -10,53 +10,9 @@
       {
         "symbol": "deuidxeur",
         "name": "DAX Index"
-      },
-      {
-        "symbol": "usa30idxusd",
-        "name": "Dow Jones"
-      },
-      {
-        "symbol": "usatechidxusd",
-        "name": "Nasdaq"
-      },
-      {
-        "symbol": "usa500idxusd",
-        "name": "S&P 500"
-      },
-      {
-        "symbol": "xagusd",
-        "name": "Spot Silver"
-      },
-      {
-        "symbol": "xauusd",
-        "name": "Spot Gold"
-      },
-      {
-        "symbol": "lightcmdusd",
-        "name": "Light Crude Oil"
-      },
-      {
-        "symbol": "eurusd",
-        "name": "EURUSD"
-      },
-      {
-        "symbol": "eurjpy",
-        "name": "EURJPY"
-      },
-      {
-        "symbol": "usdcad",
-        "name": "USDCAD"
-      },
-      {
-        "symbol": "nzdcad",
-        "name": "NZDCAD"
       }
     ],
     "tradfi_disabled": [
-      {
-        "symbol": "deuidxeur",
-        "name": "DAX Index"
-      },
       {
         "symbol": "usa30idxusd",
         "name": "Dow Jones"
@@ -118,13 +74,13 @@
       }
     ]
   },
-  "timeframes": ["m1"],
-  "ignored_timeframes": ["m5", "h1"],
+  "timeframes": ["m1", "m5", "h1"],
+  "ignored_timeframes": [],
   "tradfi": {
     "timeframes": {
-      "m1": { "batchSize": 5, "pauseBetweenBatchesMs": 5000 },
-      "m5": { "batchSize": 3, "pauseBetweenBatchesMs": 5000 },
-      "h1": { "batchSize": 2, "pauseBetweenBatchesMs": 5000 }
+      "m1": { "batchSize": 5, "pauseBetweenBatchesMs": 500 },
+      "m5": { "batchSize": 3, "pauseBetweenBatchesMs": 500 },
+      "h1": { "batchSize": 2, "pauseBetweenBatchesMs": 500 }
     }
   },
   "crypto": {

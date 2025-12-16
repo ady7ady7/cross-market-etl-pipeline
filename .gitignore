@@ -15,11 +15,13 @@ __pycache__/
 .env.production.local
 
 # Data files
+ca-certificate.crt
 data/
 *.csv
 /data/*.json
 /logs/*.json
 /metadata/*.json
+/metadata/symbols/
 *.parquet
 
 # Logs
