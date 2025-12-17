@@ -78,7 +78,7 @@ class DataImportOrchestrator {
     }
   }
 
-  async runAll() {
+  async runAll(exitOnComplete = true) {
     console.log('🚀 Starting Cross-Market ETL Pipeline');
     console.log('📅 Start time:', new Date().toISOString());
     console.log('═'.repeat(80));
@@ -101,7 +101,10 @@ class DataImportOrchestrator {
 
     } catch (error) {
       console.error('\n❌ Pipeline execution failed:', error);
-      process.exit(1);
+      if (exitOnComplete) {
+        process.exit(1);
+      }
+      throw error;
     }
 
     // Final summary
@@ -125,7 +128,12 @@ class DataImportOrchestrator {
     const allSuccess = tradfiResult.success && cryptoResult.success;
     console.log(`\n${allSuccess ? '🎊 All imports completed successfully!' : '⚠️  Some imports failed - check logs for details'}\n`);
 
-    process.exit(allSuccess ? 0 : 1);
+    // Only exit if running as standalone script (not when called from scheduler)
+    if (exitOnComplete) {
+      process.exit(allSuccess ? 0 : 1);
+    }
+
+    return { success: allSuccess, tradfiResult, cryptoResult };
   }
 
   async runTradFiOnly() {
@@ -191,3 +199,5 @@ process.on('SIGTERM', () => {
 if (require.main === module) {
   main();
 }
+
+module.exports = DataImportOrchestrator;

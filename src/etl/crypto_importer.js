@@ -147,14 +147,24 @@ class CryptoImporter {
 
       const ccxtTimeframe = timeframeConfig.ccxtTimeframe || '1m';
 
+      // Calculate approximate time range for progress estimation
+      const timeRangeMs = until - since;
+      const totalDays = Math.ceil(timeRangeMs / (24 * 60 * 60 * 1000));
+
       this.logger.info(`Starting data collection from ${new Date(since).toISOString()}`);
+      this.logger.info(`Time range: ${totalDays} days | Batch size: ${timeframeConfig.batchSize} candles`);
 
       while (currentTime < until) {
         try {
           batchCount += 1;
 
-          // Fetch OHLCV data
-          this.logger.batch(batchCount, 0, timeframeConfig.batchSize); // 0 = unknown total
+          // Calculate progress based on time covered
+          const timeCovered = currentTime - since;
+          const progressPercent = ((timeCovered / timeRangeMs) * 100).toFixed(1);
+          const candlesFetched = allCandles.length;
+
+          // Log progress with actual data
+          console.log(`📦 Batch ${batchCount} | Progress: ${progressPercent}% | Candles: ${candlesFetched.toLocaleString()}`);
 
           const candles = await exchange.fetchOHLCV(
             asset.symbol,

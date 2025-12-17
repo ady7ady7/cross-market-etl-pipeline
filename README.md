@@ -85,9 +85,7 @@ The database schema has been updated to support multiple timeframes:
    ```
    *This will create separate tables for each symbol-timeframe combination and populate metadata for all timeframes.*
 
-## Scheduler Setup (Multi-Timeframe Aware)
-
-The scheduler now automatically handles all configured timeframes:
+## Scheduler Setup (Multi-Timeframe Aware) (TBD)
 
 1. **Setup a Background Worker**:
    - Use Render, Railway, or any other service provider

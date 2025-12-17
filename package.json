@@ -17,6 +17,8 @@
     "csv:import": "node scripts/import_csv_only.js",
     "db:stats": "node -e \"const mgr = require('./src/database/symbol_manager'); new mgr().metadataManager.getAllSymbolMetadata().then(console.log)\"",
     "metadata:generate": "node -e \"const mgr = require('./src/database/symbol_metadata_manager'); new mgr().generateAllMetadata()\"",
+    "scheduler:start": "node scheduler.js",
+    "scheduler:test": "node scheduler.js --test",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

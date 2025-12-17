@@ -4,6 +4,8 @@
  */
 
 require('dotenv').config();
+const fs = require('fs').promises;
+const path = require('path');
 const SymbolDatabaseManager = require('../src/database/symbol_manager');
 const { testConnection } = require('../src/config/database');
 
@@ -96,9 +98,13 @@ async function importToDatabase() {
       const firstCrypto = cryptoMetadata[0];
       console.log(`   Crypto: SELECT * FROM ${firstCrypto.table_name} WHERE day_of_week IN ('Saturday', 'Sunday') LIMIT 5;`);
     }
-    
+
+    // Clean up CSV files after successful import
+    console.log('\n🧹 Cleaning up CSV files...');
+    await cleanupCSVFiles();
+
     process.exit(0);
-    
+
   } catch (error) {
     console.error('\n❌ Database import failed:', error.message);
     console.error('\n💡 Make sure:');
@@ -106,6 +112,67 @@ async function importToDatabase() {
     console.error('   - CSV files exist in ./data/tradfi/ and ./data/crypto/');
     console.error('   - Run ETL pipeline first: npm run import:all');
     process.exit(1);
+  }
+}
+
+/**
+ * Clean up CSV files after successful import
+ */
+async function cleanupCSVFiles() {
+  const dataDir = path.join(__dirname, '..', 'data');
+  const tradfiDir = path.join(dataDir, 'tradfi');
+  const cryptoDir = path.join(dataDir, 'crypto');
+
+  let deletedCount = 0;
+
+  try {
+    // Clean TradFi CSV files
+    try {
+      const tradfiFiles = await fs.readdir(tradfiDir);
+      const tradfiCSVs = tradfiFiles.filter(f => f.endsWith('.csv'));
+
+      for (const file of tradfiCSVs) {
+        await fs.unlink(path.join(tradfiDir, file));
+        deletedCount++;
+      }
+
+      if (tradfiCSVs.length > 0) {
+        console.log(`   ✅ Deleted ${tradfiCSVs.length} TradFi CSV file(s)`);
+      }
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        console.warn(`   ⚠️  Could not clean TradFi directory: ${error.message}`);
+      }
+    }
+
+    // Clean Crypto CSV files
+    try {
+      const cryptoFiles = await fs.readdir(cryptoDir);
+      const cryptoCSVs = cryptoFiles.filter(f => f.endsWith('.csv'));
+
+      for (const file of cryptoCSVs) {
+        await fs.unlink(path.join(cryptoDir, file));
+        deletedCount++;
+      }
+
+      if (cryptoCSVs.length > 0) {
+        console.log(`   ✅ Deleted ${cryptoCSVs.length} Crypto CSV file(s)`);
+      }
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        console.warn(`   ⚠️  Could not clean Crypto directory: ${error.message}`);
+      }
+    }
+
+    if (deletedCount > 0) {
+      console.log(`\n✅ Successfully cleaned up ${deletedCount} CSV file(s)`);
+    } else {
+      console.log('   ℹ️  No CSV files to clean up');
+    }
+
+  } catch (error) {
+    console.warn(`⚠️  Error during cleanup: ${error.message}`);
+    // Don't throw - cleanup is non-critical
   }
 }
 

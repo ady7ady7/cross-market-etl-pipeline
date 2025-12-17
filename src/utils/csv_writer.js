@@ -110,9 +110,12 @@ class CSVWriter {
   }
 
   async writeCryptoData(data, symbol, timeframe, dateRange) {
-    const filename = this.generateFilename(symbol, timeframe, dateRange);
+    // Normalize symbol for filename: ETH/USDT -> ETH_USDT
+    // Database expects format: BTC_USDT_m1_2025-08-20_to_2025-08-22.csv
+    const normalizedSymbol = symbol.replace('/', '_');
+    const filename = this.generateFilename(normalizedSymbol, timeframe, dateRange);
     const filePath = path.join(this.baseDataPath, filename);
-    
+
     // Ensure directory exists
     await this.ensureDirectoryExists(path.dirname(filePath));
 
@@ -129,15 +132,46 @@ class CSVWriter {
       ]
     });
 
-    // Transform data to match CSV format
-    const csvData = data.map(record => ({
-      timestamp: new Date(record.timestamp).toISOString(),
-      open: record.open,
-      high: record.high,
-      low: record.low,
-      close: record.close,
-      volume: record.volume || 0
-    }));
+    // Transform CCXT candle format [timestamp, open, high, low, close, volume] to CSV format
+    const csvData = data
+      .filter(record => {
+        // Handle both CCXT array format and object format
+        const timestamp = Array.isArray(record) ? record[0] : record.timestamp;
+
+        if (timestamp === undefined || timestamp === null) {
+          console.warn(`⚠️  Skipping record with invalid timestamp: ${timestamp}`);
+          return false;
+        }
+
+        const date = new Date(timestamp);
+        if (isNaN(date.getTime())) {
+          console.warn(`⚠️  Skipping record with invalid timestamp: ${timestamp}`);
+          return false;
+        }
+        return true;
+      })
+      .map(record => {
+        // Handle both CCXT array format [timestamp, open, high, low, close, volume] and object format
+        if (Array.isArray(record)) {
+          return {
+            timestamp: new Date(record[0]).toISOString(),
+            open: record[1],
+            high: record[2],
+            low: record[3],
+            close: record[4],
+            volume: record[5] || 0
+          };
+        } else {
+          return {
+            timestamp: new Date(record.timestamp).toISOString(),
+            open: record.open,
+            high: record.high,
+            low: record.low,
+            close: record.close,
+            volume: record.volume || 0
+          };
+        }
+      });
 
     await csvWriter.writeRecords(csvData);
     return filePath;
